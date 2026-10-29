@@ -28,7 +28,7 @@ public enum WebRecipeParser {
             let steps = instructions(from: recipe["recipeInstructions"])
             let ingredients = (recipe["recipeIngredient"] as? [Any] ?? recipe["ingredients"] as? [Any] ?? [])
                 .compactMap { $0 as? String }
-                .map(clean)
+                .map { clean($0) }
                 .filter { !$0.isEmpty }
             let name = clean(recipe["name"] as? String ?? "")
             if !steps.isEmpty {
