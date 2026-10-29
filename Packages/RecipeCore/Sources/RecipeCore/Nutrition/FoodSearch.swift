@@ -36,9 +36,10 @@ public enum FoodSearch {
         "yoghurt": "yogurt",
         "whey protein": "protein powder whey",
         "protein powder": "protein powder whey",
-        "rolled oats": "oats",
-        "porridge oats": "oats",
-        "oat": "oats",
+        "rolled oats": "cereals oats regular quick",
+        "porridge oats": "cereals oats regular quick",
+        "oats": "cereals oats regular quick",
+        "oat": "cereals oats regular quick",
         "plain flour": "wheat flour white all purpose",
         "all purpose flour": "wheat flour white all purpose",
         "flour": "wheat flour white all purpose",
@@ -119,6 +120,8 @@ public enum FoodSearch {
         "blueberries": "blueberries raw",
         "strawberries": "strawberries raw",
         "almond milk": "beverages almond milk unsweetened",
+        "coconut milk": "nuts coconut milk",
+        "smoked paprika": "spices paprika",
         "oat milk": "beverages oat milk",
         "milk": "milk whole",
         "skim milk": "milk nonfat",
@@ -154,14 +157,14 @@ public enum FoodSearch {
 
     /// Words that mean the ingredient is already cooked or processed (keeps cooked entries in results).
     static let cookedWords: Set<String> = [
-        "cooked", "boiled", "fried", "roasted", "grilled", "baked", "steamed", "canned", "dried", "smoked",
-        "toasted", "leftover", "stewed", "braised", "poached", "sauteed", "frozen"
+        "cooked", "boiled", "fried", "roasted", "grilled", "baked", "steamed", "canned", "smoked",
+        "toasted", "leftover", "stewed", "braised", "poached", "sauteed"
     ]
 
     /// Description words that usually make a database entry a poor default.
     static let penalizedWords: Set<String> = [
         "babyfood", "infant", "formula", "fast", "restaurant", "dehydrated", "imitation", "mixed",
-        "frozen", "canned", "prepared", "dry", "glazed", "breaded"
+        "frozen", "canned", "prepared", "glazed", "breaded", "supplement", "candies", "snacks"
     ]
 
     /// Search terms for an ingredient name (normalized, synonyms applied, prep words removed).
@@ -178,6 +181,15 @@ public enum FoodSearch {
         }
     }
 
+    /// All subsets of `items` with `size` elements, keeping the original order inside each subset.
+    public static func combinations(of items: [String], size: Int) -> [[String]] {
+        guard size > 0 else { return [[]] }
+        guard items.count >= size else { return [] }
+        guard let first = items.first else { return [] }
+        let rest = Array(items.dropFirst())
+        return combinations(of: rest, size: size - 1).map { [first] + $0 } + combinations(of: rest, size: size)
+    }
+
     /// FTS5 MATCH expression. `all = true` requires every term; otherwise any term.
     public static func ftsQuery(terms: [String], all: Bool) -> String {
         terms
@@ -187,23 +199,43 @@ public enum FoodSearch {
             .joined(separator: all ? " AND " : " OR ")
     }
 
-    /// Re-ranks database hits: prefer raw/plain entries unless the ingredient says cooked, and entries
-    /// whose first word matches the first search term.
-    public static func rerank(_ hits: [FoodCandidate], ingredientName: String) -> [FoodCandidate] {
+    /// Modifier words added by synonyms; too generic to search on alone.
+    static let genericTerms: Set<String> = [
+        "raw", "whole", "white", "plain", "regular", "meat", "only", "sweet", "red", "green", "yellow", "salted",
+        "smooth", "table", "ground", "long", "grain", "dry", "fluid", "light", "heavy", "all", "purpose", "firm"
+    ]
+
+    /// Terms for the fallback "any term" query: the food words, without generic modifiers.
+    public static func coreTerms(_ terms: [String]) -> [String] {
+        let core = terms.filter { !genericTerms.contains($0) }
+        return core.isEmpty ? terms : core
+    }
+
+    /// Re-ranks database hits: entries matching every term first, then prefer raw/plain entries unless the
+    /// ingredient says cooked, and entries whose leading words follow the search terms.
+    public static func rerank(_ hits: [FoodCandidate], ingredientName: String, fullMatchIDs: Set<Int> = []) -> [FoodCandidate] {
         let nameTokens = Set(TextMatching.tokens(ingredientName))
         let wantsCooked = !nameTokens.isDisjoint(with: cookedWords)
-        let firstTerm = terms(for: ingredientName).first
+        let searchTerms = terms(for: ingredientName)
         return hits.enumerated().map { offset, hit -> (FoodCandidate, Double) in
             let words = Set(TextMatching.tokens(hit.description))
-            var score = -Double(offset)                         // keep the database's own order as a base
+            var score = -Double(offset) * 0.1                   // full-text rank as a weak base
+            if fullMatchIDs.contains(hit.fdcID) { score += 2 }
             if !wantsCooked {
-                if words.contains("raw") { score += 2 }
+                if words.contains("raw") { score += 1 }
                 if !words.isDisjoint(with: cookedWords) { score -= 3 }
             } else if !words.isDisjoint(with: cookedWords) {
                 score += 3
             }
             score -= Double(words.intersection(penalizedWords).subtracting(nameTokens).count) * 2
-            if let firstTerm, TextMatching.tokens(hit.description).first?.hasPrefix(firstTerm) == true { score += 1 }
+            // FDC names lead with the food ("Oil, olive, …", "Milk, whole, …"): reward descriptions whose
+            // leading words follow the search terms in order.
+            var lead = 0
+            for (word, term) in zip(TextMatching.tokens(hit.description), searchTerms) {
+                guard word.hasPrefix(term) || term.hasPrefix(word) else { break }
+                lead += 1
+            }
+            score += Double(lead) * 1.5
             score -= Double(hit.description.count) / 60          // shorter = more generic
             return (hit, score)
         }

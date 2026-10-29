@@ -40,12 +40,25 @@ public final class FDCDatabase: @unchecked Sendable {
     public func search(ingredientName: String, limit: Int = 10) -> [FoodCandidate] {
         let terms = FoodSearch.terms(for: ingredientName)
         guard !terms.isEmpty else { return [] }
-        var hits = searchFTS(FoodSearch.ftsQuery(terms: terms, all: true), limit: 40)
-        if hits.count < limit {
-            let seen = Set(hits.map(\.fdcID))
-            hits += searchFTS(FoodSearch.ftsQuery(terms: terms, all: false), limit: 40).filter { !seen.contains($0.fdcID) }
+        // All terms; if nothing matches, the largest subsets of terms that do (drops flavours and details
+        // like "smoked" or "vanilla" wherever they appear).
+        var hits: [FoodCandidate] = []
+        let searchable = Array(terms.prefix(6))
+        for size in stride(from: searchable.count, through: 1, by: -1) {
+            var seen = Set<Int>()
+            for subset in FoodSearch.combinations(of: searchable, size: size) {
+                for hit in searchFTS(FoodSearch.ftsQuery(terms: subset, all: true), limit: 150) where seen.insert(hit.fdcID).inserted {
+                    hits.append(hit)
+                }
+            }
+            if !hits.isEmpty { break }
         }
-        return Array(FoodSearch.rerank(hits, ingredientName: ingredientName).prefix(limit))
+        let fullMatches = Set(hits.map(\.fdcID))
+        if hits.count < limit {
+            let anyTerm = FoodSearch.ftsQuery(terms: FoodSearch.coreTerms(terms), all: false)
+            hits += searchFTS(anyTerm, limit: 60).filter { !fullMatches.contains($0.fdcID) }
+        }
+        return Array(FoodSearch.rerank(hits, ingredientName: ingredientName, fullMatchIDs: fullMatches).prefix(limit))
     }
 
     /// Free-text search for the manual food picker.
