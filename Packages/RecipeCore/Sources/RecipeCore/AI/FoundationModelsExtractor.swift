@@ -56,11 +56,26 @@ struct GenMethod {
     var steps: [GenStep]
 }
 
+@Generable(description: "One suggested cooking step")
+struct GenSuggestedStep {
+    @Guide(description: "Short imperative instruction")
+    var text: String
+    @Guide(description: "Names from the ingredient list used in this step")
+    var ingredientsUsed: [String]
+    @Guide(description: "Duration in minutes, 0 if none")
+    var minutes: Int
+}
+
+@Generable(description: "A suggested cooking method")
+struct GenSuggestedMethod {
+    var steps: [GenSuggestedStep]
+}
+
 // MARK: - Implementation
 
 /// On-device extraction with Apple's Foundation Models framework.
 /// Every call uses a fresh single-turn session (sessions handle one request at a time).
-public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching {
+public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching, StepSuggesting {
 
     public init() {}
 
@@ -112,6 +127,18 @@ public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching {
             },
             rawOutput: String(describing: method)
         )
+    }
+
+    public func suggestSteps(title: String, ingredients: [String]) async throws -> [RawStep] {
+        let session = LanguageModelSession(instructions: Prompts.suggestInstructions)
+        let response = try await session.respond(
+            to: Prompts.suggestPrompt(title: title, ingredients: ingredients),
+            generating: GenSuggestedMethod.self,
+            options: options
+        )
+        return response.content.steps.map {
+            RawStep(sourceQuote: "", text: $0.text, ingredientsUsed: $0.ingredientsUsed, minutes: $0.minutes, confidence: "low")
+        }
     }
 
     /// Builds a schema at runtime whose only allowed answers are the numbered candidates or "none",

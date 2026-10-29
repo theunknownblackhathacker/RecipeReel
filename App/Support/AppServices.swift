@@ -73,6 +73,31 @@ final class AppServices {
         )
     }
 
+    /// Asks the on-device model for a suggested method (used only when the user taps "Suggest steps").
+    func suggestSteps(for recipe: Recipe) async throws -> [StepDraft] {
+        refreshAvailability()
+        guard aiAvailability.isAvailable else { throw SuggestError.unavailable(aiAvailability.message) }
+        let ingredients = recipe.sortedIngredients
+        let lines = ingredients.map { ingredient -> String in
+            let amount = RecipeMath.amountText(quantity: ingredient.quantity, unit: ingredient.unit)
+            return amount == "?" ? ingredient.name : "\(amount) \(ingredient.name)"
+        }
+        AppLog.shared.log("suggest", "Suggesting steps for “\(recipe.title)” (\(lines.count) ingredients)")
+        let raws = try await FoundationModelsExtractor().suggestSteps(title: recipe.title, ingredients: lines)
+        let steps = ExtractionPostProcessor.cleanSuggestedSteps(raws, ingredientNames: ingredients.map(\.name))
+        AppLog.shared.log("suggest", "Got \(raws.count) raw / \(steps.count) kept: " + steps.map(\.text).joined(separator: " | "))
+        return steps
+    }
+
+    enum SuggestError: LocalizedError {
+        case unavailable(String)
+        var errorDescription: String? {
+            switch self {
+            case .unavailable(let message): message
+            }
+        }
+    }
+
     func food(id: Int?) -> FoodRecord? {
         guard let id else { return nil }
         return database?.food(id: id)

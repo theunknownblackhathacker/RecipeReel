@@ -102,6 +102,14 @@ public final class Ingredient {
     }
 }
 
+/// Where a step came from.
+public enum StepOrigin: String, Codable, Sendable {
+    case video          // extracted from the video / caption
+    case aiSuggested    // written by the on-device model on request (not from the video)
+    case web            // imported from a recipe web page the user opened
+    case manual         // typed by the user
+}
+
 @Model
 public final class Step {
     public var order: Int
@@ -113,10 +121,15 @@ public final class Step {
     public var userEdited: Bool
     public var reviewed: Bool
     public var isDone: Bool
+    public var originRaw: String = StepOrigin.video.rawValue
+    /// For web steps: the site name; for AI steps: nil.
+    public var sourceLabel: String?
+    public var sourceURL: String?
     public var recipe: Recipe?
 
     public init(order: Int, text: String, minutes: Int?, ingredientNames: [String] = [],
-                confidence: Confidence = .high, sourceQuote: String = "") {
+                confidence: Confidence = .high, sourceQuote: String = "", origin: StepOrigin = .video,
+                sourceLabel: String? = nil, sourceURL: String? = nil) {
         self.order = order
         self.text = text
         self.minutes = minutes
@@ -126,6 +139,9 @@ public final class Step {
         self.userEdited = false
         self.reviewed = false
         self.isDone = false
+        self.originRaw = origin.rawValue
+        self.sourceLabel = sourceLabel
+        self.sourceURL = sourceURL
     }
 
     public var confidence: Confidence {
@@ -133,10 +149,28 @@ public final class Step {
         set { confidenceRaw = newValue.rawValue }
     }
 
-    public var needsReview: Bool { !reviewed && !userEdited && confidence == .low }
+    public var origin: StepOrigin {
+        get { StepOrigin(rawValue: originRaw) ?? .video }
+        set { originRaw = newValue.rawValue }
+    }
+
+    /// Video steps the checks flagged. Suggested/web steps are labelled as a group instead.
+    public var needsReview: Bool { origin == .video && !reviewed && !userEdited && confidence == .low }
 }
 
 public enum RecipeFactory {
+    /// Replaces all steps of a recipe with new ones (AI-suggested or imported from the web).
+    public static func replaceSteps(of recipe: Recipe, with drafts: [StepDraft], origin: StepOrigin,
+                                    sourceLabel: String? = nil, sourceURL: String? = nil) -> [Step] {
+        let steps = drafts.enumerated().map { index, draft in
+            Step(order: index, text: draft.text, minutes: draft.minutes, ingredientNames: draft.ingredientNames,
+                 confidence: draft.confidence, sourceQuote: draft.sourceQuote, origin: origin,
+                 sourceLabel: sourceLabel, sourceURL: sourceURL)
+        }
+        recipe.steps = steps
+        return steps
+    }
+
     /// Builds a Recipe (with ingredients and steps) from an extraction. Insert it into a ModelContext.
     public static func makeRecipe(from outcome: ExtractionOutcome, sourceItemID: UUID?, caption: String?,
                                   fallbackTitle: String) -> Recipe {

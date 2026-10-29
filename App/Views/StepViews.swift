@@ -243,7 +243,7 @@ struct StepEditorSheet: View {
             step.userEdited = true
             step.reviewed = true
         } else {
-            let newStep = Step(order: recipe.steps.count, text: cleanText, minutes: minutes, ingredientNames: names)
+            let newStep = Step(order: recipe.steps.count, text: cleanText, minutes: minutes, ingredientNames: names, origin: .manual)
             newStep.userEdited = true
             newStep.reviewed = true
             recipe.steps.append(newStep)

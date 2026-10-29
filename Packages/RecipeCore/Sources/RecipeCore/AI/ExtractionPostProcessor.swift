@@ -164,6 +164,37 @@ public enum ExtractionPostProcessor {
         return (!steps.isEmpty, steps, dropped)
     }
 
+    /// Cleans AI-suggested steps (no source to check against): trims, de-duplicates, caps the count,
+    /// keeps sane timer values, maps ingredient names. Always low confidence.
+    public static func cleanSuggestedSteps(_ raws: [RawStep], ingredientNames: [String]) -> [StepDraft] {
+        var steps: [StepDraft] = []
+        for raw in raws {
+            let text = raw.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard text.count >= 3 else { continue }
+            if steps.contains(where: { TextMatching.similarity(TextMatching.normalize($0.text), TextMatching.normalize(text)) >= 0.9 }) {
+                continue
+            }
+            let minutes = (1...600).contains(raw.minutes) ? raw.minutes : nil
+            steps.append(StepDraft(text: text, minutes: minutes, ingredientNames: matchNames(raw.ingredientsUsed, to: ingredientNames),
+                                   confidence: .low, sourceQuote: ""))
+            if steps.count == 12 { break }
+        }
+        return steps
+    }
+
+    /// Steps imported from a web page: timers come from durations written in the step text.
+    public static func webSteps(_ texts: [String], ingredientNames: [String]) -> [StepDraft] {
+        texts.prefix(40).map { text in
+            let lower = TextMatching.normalize(text)
+            let used = ingredientNames.filter { name in
+                let n = TextMatching.normalize(name.split(separator: ",").first.map(String.init) ?? name)
+                return !n.isEmpty && lower.contains(n)
+            }
+            return StepDraft(text: text, minutes: DurationParser.minutes(in: text), ingredientNames: used,
+                             confidence: .medium, sourceQuote: "")
+        }
+    }
+
     /// Keeps only names that refer to an ingredient in the list (mapped to the list's spelling).
     static func matchNames(_ used: [String], to names: [String]) -> [String] {
         var result: [String] = []

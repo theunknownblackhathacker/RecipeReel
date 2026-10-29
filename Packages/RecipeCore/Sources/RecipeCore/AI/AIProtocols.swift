@@ -25,3 +25,9 @@ public struct FoodPick: Sendable, Equatable {
 public protocol FoodMatching: Sendable {
     func pickFood(ingredient: String, detail: String, candidates: [FoodCandidate]) async throws -> FoodPick
 }
+
+/// Writes a suggested method when the video has none (only when the user asks for it).
+/// The result is always labelled "Suggested — not from the video" in the app.
+public protocol StepSuggesting: Sendable {
+    func suggestSteps(title: String, ingredients: [String]) async throws -> [RawStep]
+}

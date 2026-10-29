@@ -18,6 +18,15 @@ struct RecipeView: View {
     @State private var editingSteps = false
     @State private var cooking = false
     @State private var confirmDelete = false
+    @State private var findingOnline = false
+    @State private var suggesting = false
+    @State private var confirmReplace: StepSource?
+    @State private var stepError: String?
+
+    enum StepSource: Identifiable {
+        case suggest, web
+        var id: Self { self }
+    }
 
     var body: some View {
         let ingredients = recipe.sortedIngredients
@@ -78,12 +87,17 @@ struct RecipeView: View {
                 Text("Ingredients")
             }
 
+            let steps = recipe.sortedSteps
+            let origin = stepsOrigin(steps)
             Section {
-                let steps = recipe.sortedSteps
                 if steps.isEmpty {
                     Label("No instructions in this video", systemImage: "text.badge.xmark")
                         .foregroundStyle(.secondary)
+                    findStepsButtons
                 } else {
+                    if origin == .aiSuggested || origin == .web {
+                        StepsOriginBanner(steps: steps, origin: origin)
+                    }
                     ForEach(steps) { step in
                         if !reviewOnly || step.needsReview {
                             StepRow(step: step, number: step.order + 1, ingredientNames: ingredients.map(\.name))
@@ -93,11 +107,11 @@ struct RecipeView: View {
             } header: {
                 Text("Steps")
             } footer: {
-                Text("Tap a step to mark it done.")
+                if !steps.isEmpty { Text("Tap a step to mark it done.") }
             }
 
             Section {
-                Text("Macros are estimates from USDA FoodData Central and depend on the matched foods and amounts. Steps come only from the video and its caption.")
+                Text("Macros are estimates from USDA FoodData Central and depend on the matched foods and amounts. Steps come from the video and its caption unless marked as suggested or imported.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -119,6 +133,16 @@ struct RecipeView: View {
                         editingSteps = true
                     } label: {
                         Label("Edit steps", systemImage: "list.number")
+                    }
+                    Button {
+                        requestSteps(.suggest)
+                    } label: {
+                        Label("Suggest steps (on-device AI)", systemImage: "sparkles")
+                    }
+                    Button {
+                        requestSteps(.web)
+                    } label: {
+                        Label("Find steps online", systemImage: "safari")
                     }
                     Button {
                         recipe.steps.forEach { $0.isDone = false }
@@ -150,12 +174,93 @@ struct RecipeView: View {
         .fullScreenCover(isPresented: $cooking) {
             CookModeView(recipe: recipe)
         }
+        .sheet(isPresented: $findingOnline) {
+            WebStepsImportView(recipe: recipe)
+        }
+        .confirmationDialog("Replace the current steps?", isPresented: Binding(
+            get: { confirmReplace != nil },
+            set: { if !$0 { confirmReplace = nil } }
+        ), titleVisibility: .visible, presenting: confirmReplace) { source in
+            Button("Replace steps", role: .destructive) { startSteps(source) }
+        } message: { _ in
+            Text("The steps from the video will be removed.")
+        }
+        .alert("Couldn't get steps", isPresented: Binding(
+            get: { stepError != nil },
+            set: { if !$0 { stepError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(stepError ?? "")
+        }
         .confirmationDialog("Delete this recipe?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 context.delete(recipe)
                 try? context.save()
                 dismiss()
             }
+        }
+    }
+
+    // MARK: - Finding steps when the video has none
+
+    @ViewBuilder
+    private var findStepsButtons: some View {
+        Button {
+            requestSteps(.suggest)
+        } label: {
+            if suggesting {
+                HStack { ProgressView(); Text("Writing suggested steps…") }
+            } else {
+                Label("Suggest steps (on-device AI)", systemImage: "sparkles")
+            }
+        }
+        .disabled(suggesting || recipe.ingredients.isEmpty)
+        Button {
+            requestSteps(.web)
+        } label: {
+            Label("Find steps online", systemImage: "safari")
+        }
+    }
+
+    private func stepsOrigin(_ steps: [Step]) -> StepOrigin? {
+        let origins = Set(steps.map(\.origin))
+        if origins.contains(.aiSuggested) { return .aiSuggested }
+        if origins.contains(.web) { return .web }
+        return origins.first
+    }
+
+    private func requestSteps(_ source: StepSource) {
+        if recipe.steps.contains(where: { $0.origin == .video }) {
+            confirmReplace = source
+        } else {
+            startSteps(source)
+        }
+    }
+
+    private func startSteps(_ source: StepSource) {
+        switch source {
+        case .web:
+            findingOnline = true
+        case .suggest:
+            Task { await suggestSteps() }
+        }
+    }
+
+    private func suggestSteps() async {
+        suggesting = true
+        defer { suggesting = false }
+        do {
+            let drafts = try await services.suggestSteps(for: recipe)
+            guard !drafts.isEmpty else {
+                stepError = "The model didn't return any steps. Try again or find steps online."
+                return
+            }
+            for old in recipe.steps { context.delete(old) }
+            _ = RecipeFactory.replaceSteps(of: recipe, with: drafts, origin: .aiSuggested)
+            try? context.save()
+        } catch {
+            stepError = error.localizedDescription
         }
     }
 
@@ -301,5 +406,32 @@ struct IngredientRow: View {
             result.append("approximate weight (\(nutrition.conversion.detail))")
         }
         return result
+    }
+}
+
+/// Explains where non-video steps came from.
+struct StepsOriginBanner: View {
+    let steps: [Step]
+    let origin: StepOrigin?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if origin == .aiSuggested {
+                Label("Suggested by on-device AI — not from the video", systemImage: "sparkles")
+                    .font(.subheadline.bold())
+                Text("A guess from the ingredient list. Check times and temperatures before cooking.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let step = steps.first(where: { $0.origin == .web }) {
+                Label("Imported from \(step.sourceLabel ?? "a web page") — not from the video", systemImage: "safari")
+                    .font(.subheadline.bold())
+                if let link = step.sourceURL.flatMap(URL.init(string:)) {
+                    Link("Open the original page", destination: link)
+                        .font(.caption)
+                }
+            }
+        }
+        .foregroundStyle(.orange)
+        .padding(.vertical, 2)
     }
 }
