@@ -31,7 +31,12 @@ jobs:
 
       - name: Unit tests (RecipeCore)
         working-directory: Packages/RecipeCore
-        run: swift test
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee "$RUNNER_TEMP/swift-test.log" || {
+            python3 "$GITHUB_WORKSPACE/.github/scripts/annotate-errors.py" "$RUNNER_TEMP/swift-test.log" "swift test failed"
+            exit 1
+          }
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -48,4 +53,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            -quiet
+            -quiet 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" || {
+            python3 .github/scripts/annotate-errors.py "$RUNNER_TEMP/xcodebuild.log" "xcodebuild failed"
+            exit 1
+          }
