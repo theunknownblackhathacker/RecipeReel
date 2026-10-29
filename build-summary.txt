@@ -1,0 +1,92 @@
+Commit: dc601470de5d5a5a1fa98dd7392b34a04e041959
+Run: 15
+Result: success
+
+== Unit tests ==
+✔ Test run with 70 tests in 18 suites passed after 0.083 seconds.
+
+== Errors and warnings in our sources ==
+
+== Other errors ==
+
+== Last 80 lines of build log ==
+SwiftMergeGeneratedHeaders /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/DerivedSources/RecipeReel-Swift.h /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel-Swift.h (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-swiftHeaderTool -arch arm64 /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel-Swift.h -o /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/DerivedSources/RecipeReel-Swift.h
+
+Copy /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/arm64-apple-ios.swiftdoc /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.swiftdoc (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.swiftdoc /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/arm64-apple-ios.swiftdoc
+
+Copy /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/arm64-apple-ios.swiftmodule /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.swiftmodule (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.swiftmodule /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/arm64-apple-ios.swiftmodule
+
+Copy /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/arm64-apple-ios.abi.json /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.abi.json (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.abi.json /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/arm64-apple-ios.abi.json
+
+Copy /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.swiftsourceinfo (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.swiftsourceinfo /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo
+
+Ld /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/RecipeReel normal (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    /Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios27.0 -isysroot /Applications/Xcode_27.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS27.1.sdk -Os -Xlinker -no_warn_duplicate_libraries -L/Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/EagerLinkingTBDs/Release-iphoneos -L/Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos -F/Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/EagerLinkingTBDs/Release-iphoneos -F/Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/PackageFrameworks -F/Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos -filelist /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.LinkFileList -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel_lto.o -Xlinker -dependency_info -Xlinker /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.swiftmodule -o /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/RecipeReel
+
+Copy /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/PlugIns/RecipeReelShare.appex /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReelShare.appex (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks -remove-static-executable /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReelShare.appex /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/PlugIns
+
+ProcessInfoPlistFile /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Info.plist /Users/runner/work/RecipeReel/RecipeReel/App/Info.plist (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-infoPlistUtility /Users/runner/work/RecipeReel/RecipeReel/App/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/PkgInfo -expandbuildsettings -format binary -platform iphoneos -scanforprivacyfile /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/PlugIns/RecipeReelShare.appex -requiredArchitecture arm64 -o /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Info.plist
+warning: 'UIRequiresFullScreen' has been deprecated starting in iOS 26.0 and will be ignored in a future release. See the UIRequiresFullScreen documentation for more details. (in target 'RecipeReel' from project 'RecipeReel')
+
+ExtractAppIntentsMetadata (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    /Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.v5FIKW/Metal.xctoolchain --module-name RecipeReel --sdk-root /Applications/Xcode_27.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS27.1.sdk --xcode-version 27A9275 --platform-family iOS --deployment-target 27.0 --bundle-identifier com.kevin.recipereel --output /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app --target-triple arm64-apple-ios27.0 --binary-file /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/RecipeReel --dependency-file /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel_dependency_info.dat --stringsdata-file /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.SwiftFileList --metadata-file-list /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/RecipeReel.DependencyMetadataFileList --static-metadata-file-list /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/RecipeReel.DependencyStaticMetadataFileList --swift-const-vals-list /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/Objects-normal/arm64/RecipeReel.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --no-app-shortcuts-localization
+2026-10-29 16:31:21.764 appintentsmetadataprocessor[18311:50542] Starting appintentsmetadataprocessor export
+2026-10-29 16:31:21.766 appintentsmetadataprocessor[18311:50542] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+CopySwiftLibs /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/RecipeReel --scan-folder /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Frameworks --scan-folder /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/PlugIns --scan-folder /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/SystemExtensions --scan-folder /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Extensions --platform iphoneos --toolchain /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.v5FIKW/Metal.xctoolchain --toolchain /Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+Ignoring --strip-bitcode because --sign was not passed
+
+ValidateEmbeddedBinary /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/PlugIns/RecipeReelShare.appex (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    /Applications/Xcode_27.1.app/Contents/Developer/usr/bin/embeddedBinaryValidationUtility /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/PlugIns/RecipeReelShare.appex -info-plist-path /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Info.plist
+
+GenerateDSYMFile /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app.dSYM /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/RecipeReel (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    export PATH\=/Applications/Xcode_27.1.app/Contents/SharedFrameworks/SwiftBuild.framework/Versions/A/PlugIns/SWBBuildService.bundle/Contents/PlugIns/SWBUniversalPlatformPlugin.bundle/Contents/Frameworks/SWBUniversalPlatform.framework/Resources:/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.v5FIKW/Metal.xctoolchain/usr/bin:/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.v5FIKW/Metal.xctoolchain/usr/local/bin:/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.v5FIKW/Metal.xctoolchain/usr/libexec:/Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:/Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/local/bin:/Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/libexec:/Applications/Xcode_27.1.app/Contents/Developer/Platforms/iPhoneOS.platform/usr/bin:/Applications/Xcode_27.1.app/Contents/Developer/Platforms/iPhoneOS.platform/usr/local/bin:/Applications/Xcode_27.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin:/Applications/Xcode_27.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/local/bin:/Applications/Xcode_27.1.app/Contents/Developer/usr/bin:/Applications/Xcode_27.1.app/Contents/Developer/usr/local/bin:/opt/homebrew/opt/rustup/bin:/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/opt/ruby@3.4/bin:/Users/runner/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/runner/.cargo/bin:/usr/local/opt/curl/bin:/usr/local/bin:/usr/local/sbin:/Users/runner/bin:/Users/runner/.yarn/bin:/Users/runner/Library/Android/sdk/tools:/Users/runner/Library/Android/sdk/platform-tools:/Library/Frameworks/Python.framework/Versions/Current/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/usr/bin:/bin:/usr/sbin:/sbin:/Users/runner/.dotnet/tools
+    /Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/dsymutil /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/RecipeReel -o /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app.dSYM
+
+AppIntentsSSUTraining (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    /Applications/Xcode_27.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Info.plist --temp-dir-path /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/ssu --bundle-id com.kevin.recipereel --product-path /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app --extracted-metadata-path /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Metadata.appintents --metadata-file-list /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/RecipeReel.build/Release-iphoneos/RecipeReel.build/RecipeReel.DependencyMetadataFileList --source-file /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app/Info.plist --archive-ssu-assets
+2026-10-29 16:31:21.907 appintentsnltrainingprocessor[18314:50547] Parsing options for appintentsnltrainingprocessor
+2026-10-29 16:31:21.907 appintentsnltrainingprocessor[18314:50547] Starting AppIntents SSU YAML Generation
+2026-10-29 16:31:21.908 appintentsnltrainingprocessor[18314:50547] No AppShortcuts found - Skipping.
+
+RegisterExecutionPolicyException /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-RegisterExecutionPolicyException /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app
+
+Validate /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    builtin-validationUtility /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app (in target 'RecipeReel' from project 'RecipeReel')
+    cd /Users/runner/work/RecipeReel/RecipeReel
+    /usr/bin/touch -c /Users/runner/work/RecipeReel/RecipeReel/build/Build/Products/Release-iphoneos/RecipeReel.app
+
+PruneExplicitPrecompiledModules /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /Users/runner/work/RecipeReel/RecipeReel/build/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /Users/runner/work/RecipeReel/RecipeReel/build/SDKExplicitPrecompiledModules
+
+** BUILD SUCCEEDED **
+

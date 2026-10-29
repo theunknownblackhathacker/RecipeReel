@@ -1,0 +1,200 @@
+[97 / 133]
+[99 / 133]
+[100 / 133]
+[101 / 133]
+[103 / 133]
+[105 / 133]
+[109 / 133] RecipeCore
+[110 / 133] RecipeCore
+[117 / 133] RecipeCore
+[123 / 134] RecipeCoreTests-product
+[124 / 140]
+[129 / 140] RecipeCoreTests-product
+[130 / 140] RecipeCoreTests-product
+[134 / 140] RecipeCoreTests-product
+[136 / 140] RecipeCoreTests-product
+[139 / 140] RecipeCoreTests-product
+Build complete! (22.30 sec)
+Test Suite 'All tests' started at 2026-10-29 16:30:32.802.
+Test Suite 'All tests' passed at 2026-10-29 16:30:32.805.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "NutritionCalculator" started.
+◇ Suite "UnitConverter" started.
+◇ Suite "OCRDeduper" started.
+◇ Suite "SharedContainer" started.
+◇ Suite "ExtractionPostProcessor" started.
+◇ Suite "ProvisioningInfo" started.
+◇ Suite "SourceTimeline" started.
+◇ Suite "TextMatching" started.
+◇ Suite "WebRecipeParser" started.
+◇ Suite "AppGroup" started.
+◇ Suite "InboxStore" started.
+◇ Suite "Pipeline with mocks" started.
+◇ Suite "DiagnosticsLog" started.
+◇ Suite "Suggested and web steps" started.
+◇ Suite "DurationParser" started.
+◇ Suite "FDCDatabase" started.
+◇ Suite "CanonicalUnit" started.
+◇ Suite "USDA values" started.
+◇ Test perIngredientMacros() started.
+◇ Test servingsBelowOneAreTreatedAsOne() started.
+◇ Test missingEnergyIsEstimatedFromMacros() started.
+◇ Test recipeTotalsAndPerServing() started.
+◇ Test volumeUsesDensityWhenNoMatchingPortion() started.
+◇ Test massUnitsAreExact() started.
+◇ Test volumeWithoutAnyDataIsAssumedWater() started.
+◇ Test matchingPortionIsUsed() started.
+◇ Test uncountableLines() started.
+◇ Test portionTextClassification() started.
+◇ Test piecesPreferMediumThenLarge() started.
+◇ Test mergesRepeatsAndNearDuplicatesKeepingFirstTime() started.
+◇ Test usesFirstGroupIOSGrants() started.
+◇ Test reportsWhenNoGroupIsGranted() started.
+◇ Test listShownTwiceIsKeptOnce() started.
+◇ Test minutesMustBeStated() started.
+◇ Test numbersAreParsed() started.
+◇ Test methodVocabulary() started.
+◇ Test ingredientsAreCleanedAndMergedNotSummed() started.
+◇ Test detectsWildcardProfile() started.
+◇ Test garbageReturnsNil() started.
+◇ Test captionFirstThenTimeOrderedScreenAndVoice() started.
+◇ Test parsesExplicitProfileWithAppGroups() started.
+◇ Test overlongLineIsSplitOnWords() started.
+◇ Test emptyTimeline() started.
+◇ Test chunksRespectLimitAndOrder() started.
+◇ Test singleStringWithBreaksAndNumbers() started.
+◇ Test normalizeFoldsCaseAccentsAndPunctuation() started.
+◇ Test inventedQuoteIsRejected() started.
+◇ Test selectedTextBecomesSteps() started.
+◇ Test sectionsAndPlainStrings() started.
+◇ Test bagOfWordsIsNotEnough() started.
+◇ Test microdataFallback() started.
+◇ Test noRecipeMeansNil() started.
+◇ Test howToStepsInsideGraph() started.
+◇ Test quoteFoundEvenWithSmallDifferences() started.
+◇ Test preferredComesFirstWhenProfileHasIt() started.
+◇ Test noProfileGroupsMeansPreferredOnly() started.
+◇ Test recipeReelNamedGroupsBeforeOthers() started.
+◇ Test linkAndCaptionItems() started.
+◇ Test signingServiceGroupsAreSortedAndWildcardsDropped() started.
+◇ Test addVideoCanMoveTheSource() started.
+◇ Test halfWrittenStagingFoldersAreIgnored() started.
+◇ Test moveAllTransfersItemsBetweenStores() started.
+◇ Test addVideoCopiesFileAndWritesManifest() started.
+◇ Test choiceParsing() started.
+◇ Test missingRootMeansNoItems() started.
+◇ Test emptyCaptionIsRejected() started.
+◇ Test aiUnavailableSkipsExtraction() started.
+◇ Test case3InventedStepsAreAllDropped() started.
+◇ Test updateCaptionAndDelete() started.
+◇ Test failuresAreRecordedNotThrown() started.
+◇ Test perfectOutputPassesSelfTestCase1() started.
+◇ Test case2InventedTimeIsRemovedButRealStepsKept() started.
+◇ Test noMethodFlagMeansNoSteps() started.
+◇ Test appendsAndReadsLines() started.
+◇ Test clearRemovesEverything() started.
+◇ Test trimsWhenTooLarge() started.
+◇ Test suggestionsAreLowConfidenceAndCleaned() started.
+◇ Test concurrentWritesAreAllKept() started.
+◇ Test findsDurations() started.
+◇ Test webStepsGetTimersAndIngredientLinks() started.
+◇ Test matchingInsidePipelineUsesDatabaseCandidates() started.
+◇ Test searchTermsUseSynonymsAndDropPrepWords() started.
+◇ Test parsesCommonSpellings() started.
+◇ Test searchFindsAndRanksFixtureFoods() started.
+◇ Test foodRecordIncludesNutrientsAndPortions() started.
+◇ Test oliveOil() started.
+◇ Test wholeRawEgg() started.
+◇ Test searchReturnsSensibleFirstHits() started.
+✔ Test missingEnergyIsEstimatedFromMacros() passed after 0.064 seconds.
+✔ Test servingsBelowOneAreTreatedAsOne() passed after 0.064 seconds.
+✔ Test recipeTotalsAndPerServing() passed after 0.064 seconds.
+✔ Test volumeUsesDensityWhenNoMatchingPortion() passed after 0.064 seconds.
+✔ Test massUnitsAreExact() passed after 0.064 seconds.
+✔ Test volumeWithoutAnyDataIsAssumedWater() passed after 0.064 seconds.
+✔ Test uncountableLines() passed after 0.064 seconds.
+✔ Test matchingPortionIsUsed() passed after 0.064 seconds.
+✔ Test portionTextClassification() passed after 0.064 seconds.
+✔ Test piecesPreferMediumThenLarge() passed after 0.064 seconds.
+✔ Test mergesRepeatsAndNearDuplicatesKeepingFirstTime() passed after 0.064 seconds.
+✔ Test perIngredientMacros() passed after 0.064 seconds.
+✔ Test reportsWhenNoGroupIsGranted() passed after 0.064 seconds.
+✔ Test listShownTwiceIsKeptOnce() passed after 0.064 seconds.
+✔ Test usesFirstGroupIOSGrants() passed after 0.064 seconds.
+✔ Test methodVocabulary() passed after 0.064 seconds.
+✔ Test ingredientsAreCleanedAndMergedNotSummed() passed after 0.067 seconds.
+✔ Test detectsWildcardProfile() passed after 0.067 seconds.
+✔ Test garbageReturnsNil() passed after 0.067 seconds.
+✔ Test captionFirstThenTimeOrderedScreenAndVoice() passed after 0.067 seconds.
+✔ Test parsesExplicitProfileWithAppGroups() passed after 0.067 seconds.
+✔ Test overlongLineIsSplitOnWords() passed after 0.067 seconds.
+✔ Test emptyTimeline() passed after 0.067 seconds.
+✔ Test chunksRespectLimitAndOrder() passed after 0.067 seconds.
+✔ Test singleStringWithBreaksAndNumbers() passed after 0.067 seconds.
+✔ Test minutesMustBeStated() passed after 0.067 seconds.
+✔ Test inventedQuoteIsRejected() passed after 0.067 seconds.
+✔ Test selectedTextBecomesSteps() passed after 0.067 seconds.
+✔ Test sectionsAndPlainStrings() passed after 0.067 seconds.
+✔ Test bagOfWordsIsNotEnough() passed after 0.067 seconds.
+✔ Test microdataFallback() passed after 0.067 seconds.
+✔ Test noRecipeMeansNil() passed after 0.067 seconds.
+✔ Test numbersAreParsed() passed after 0.067 seconds.
+✔ Test preferredComesFirstWhenProfileHasIt() passed after 0.067 seconds.
+✔ Test quoteFoundEvenWithSmallDifferences() passed after 0.067 seconds.
+✔ Test noProfileGroupsMeansPreferredOnly() passed after 0.067 seconds.
+✔ Test recipeReelNamedGroupsBeforeOthers() passed after 0.067 seconds.
+✔ Test normalizeFoldsCaseAccentsAndPunctuation() passed after 0.067 seconds.
+✔ Test signingServiceGroupsAreSortedAndWildcardsDropped() passed after 0.067 seconds.
+✔ Test linkAndCaptionItems() passed after 0.067 seconds.
+✔ Test howToStepsInsideGraph() passed after 0.067 seconds.
+✔ Test addVideoCanMoveTheSource() passed after 0.067 seconds.
+✔ Test halfWrittenStagingFoldersAreIgnored() passed after 0.067 seconds.
+✔ Test choiceParsing() passed after 0.067 seconds.
+✔ Test missingRootMeansNoItems() passed after 0.067 seconds.
+✔ Test emptyCaptionIsRejected() passed after 0.067 seconds.
+✔ Test aiUnavailableSkipsExtraction() passed after 0.067 seconds.
+✔ Test addVideoCopiesFileAndWritesManifest() passed after 0.067 seconds.
+✔ Test case3InventedStepsAreAllDropped() passed after 0.067 seconds.
+✔ Test moveAllTransfersItemsBetweenStores() passed after 0.067 seconds.
+✔ Test updateCaptionAndDelete() passed after 0.067 seconds.
+✔ Test failuresAreRecordedNotThrown() passed after 0.067 seconds.
+✔ Test noMethodFlagMeansNoSteps() passed after 0.067 seconds.
+✔ Test appendsAndReadsLines() passed after 0.067 seconds.
+✔ Test perfectOutputPassesSelfTestCase1() passed after 0.067 seconds.
+✔ Test clearRemovesEverything() passed after 0.067 seconds.
+✔ Test case2InventedTimeIsRemovedButRealStepsKept() passed after 0.067 seconds.
+✔ Test findsDurations() passed after 0.071 seconds.
+✔ Test suggestionsAreLowConfidenceAndCleaned() passed after 0.071 seconds.
+✔ Test webStepsGetTimersAndIngredientLinks() passed after 0.071 seconds.
+✔ Test searchTermsUseSynonymsAndDropPrepWords() passed after 0.071 seconds.
+✔ Test parsesCommonSpellings() passed after 0.071 seconds.
+✔ Test trimsWhenTooLarge() passed after 0.071 seconds.
+✔ Test matchingInsidePipelineUsesDatabaseCandidates() passed after 0.071 seconds.
+✔ Test searchFindsAndRanksFixtureFoods() passed after 0.071 seconds.
+✔ Test oliveOil() passed after 0.066 seconds.
+✔ Test wholeRawEgg() passed after 0.066 seconds.
+✔ Suite "NutritionCalculator" passed after 0.072 seconds.
+✔ Suite "UnitConverter" passed after 0.072 seconds.
+✔ Suite "OCRDeduper" passed after 0.072 seconds.
+✔ Suite "SharedContainer" passed after 0.072 seconds.
+✔ Suite "ExtractionPostProcessor" passed after 0.072 seconds.
+✔ Suite "ProvisioningInfo" passed after 0.072 seconds.
+✔ Suite "SourceTimeline" passed after 0.072 seconds.
+✔ Suite "WebRecipeParser" passed after 0.072 seconds.
+✔ Suite "TextMatching" passed after 0.072 seconds.
+✔ Suite "AppGroup" passed after 0.072 seconds.
+✔ Suite "InboxStore" passed after 0.072 seconds.
+✔ Suite "Pipeline with mocks" passed after 0.072 seconds.
+✔ Test concurrentWritesAreAllKept() passed after 0.072 seconds.
+✔ Suite "DurationParser" passed after 0.072 seconds.
+✔ Suite "Suggested and web steps" passed after 0.072 seconds.
+✔ Suite "CanonicalUnit" passed after 0.072 seconds.
+✔ Suite "DiagnosticsLog" passed after 0.072 seconds.
+✔ Test foodRecordIncludesNutrientsAndPortions() passed after 0.072 seconds.
+✔ Suite "FDCDatabase" passed after 0.073 seconds.
+✔ Test searchReturnsSensibleFirstHits() passed after 0.076 seconds.
+✔ Suite "USDA values" passed after 0.083 seconds.
+✔ Test run with 70 tests in 18 suites passed after 0.083 seconds.
