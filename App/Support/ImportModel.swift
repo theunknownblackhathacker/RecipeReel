@@ -30,7 +30,7 @@ final class ImportModel {
         self.install = install
         self.log = AppLog.shared
         self.localStore = InboxStore(rootURL: AppPaths.importsRoot)
-        self.shared = SharedContainer.resolve(profile: install.appProfile)
+        self.shared = SharedContainer.resolve(profileGroups: install.appProfile?.appGroups ?? [])
 
         log.log("app", "Launch v\(install.version) (\(install.build)), bundle \(install.appBundleID)")
         if shared.isAvailable {

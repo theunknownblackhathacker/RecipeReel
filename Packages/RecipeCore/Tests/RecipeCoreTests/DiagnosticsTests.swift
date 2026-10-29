@@ -62,23 +62,48 @@ struct ProvisioningInfoTests {
 struct AppGroupTests {
     let preferred = "group.com.kevin.recipereel"
 
-    @Test func usesPreferredWhenProfileHasIt() {
-        #expect(AppGroup.resolveIdentifier(preferred: preferred,
-                                           profileGroups: ["group.other", preferred]) == preferred)
+    @Test func preferredComesFirstWhenProfileHasIt() {
+        #expect(AppGroup.candidates(preferred: preferred, profileGroups: ["group.other", preferred])
+                == [preferred, "group.other"])
     }
 
-    @Test func fallsBackToRecipeReelNamedGroup() {
-        #expect(AppGroup.resolveIdentifier(preferred: preferred,
-                                           profileGroups: ["group.zzz", "group.x.RecipeReel"]) == "group.x.RecipeReel")
+    @Test func recipeReelNamedGroupsBeforeOthers() {
+        #expect(AppGroup.candidates(preferred: preferred, profileGroups: ["group.zzz", "group.x.RecipeReel"])
+                == ["group.x.RecipeReel", "group.zzz", preferred])
     }
 
-    @Test func fallsBackToFirstConcreteGroup() {
-        #expect(AppGroup.resolveIdentifier(preferred: preferred,
-                                           profileGroups: ["group.b", "group.a", "group.*"]) == "group.a")
+    @Test func signingServiceGroupsAreSortedAndWildcardsDropped() {
+        // Shape of Kevin's real profile (Feather): numbered groups, none of ours.
+        let groups = ["group.1ee36df74cba27f7.5", "group.1ee36df74cba27f7.1", "group.1ee36df74cba27f7.3", "group.*"]
+        #expect(AppGroup.candidates(preferred: preferred, profileGroups: groups)
+                == ["group.1ee36df74cba27f7.1", "group.1ee36df74cba27f7.3", "group.1ee36df74cba27f7.5", preferred])
     }
 
-    @Test func usesPreferredWhenProfileHasNone() {
-        #expect(AppGroup.resolveIdentifier(preferred: preferred, profileGroups: []) == preferred)
+    @Test func noProfileGroupsMeansPreferredOnly() {
+        #expect(AppGroup.candidates(preferred: preferred, profileGroups: []) == [preferred])
+    }
+}
+
+@Suite("SharedContainer")
+struct SharedContainerTests {
+
+    @Test func usesFirstGroupIOSGrants() throws {
+        let base = FileManager.default.temporaryDirectory.appending(path: "RecipeCoreTests-\(UUID().uuidString)")
+        let container = SharedContainer.resolve(candidates: ["group.a", "group.b", "group.c"]) { id in
+            id == "group.a" ? nil : base.appending(path: id)
+        }
+        #expect(container.isAvailable)
+        #expect(container.groupIdentifier == "group.b")
+        let inbox = try #require(container.inboxURL)
+        #expect(inbox.path().contains("group.b/RecipeReel/Inbox"))
+        #expect(FileManager.default.fileExists(atPath: inbox.path(percentEncoded: false)))
+    }
+
+    @Test func reportsWhenNoGroupIsGranted() {
+        let container = SharedContainer.resolve(candidates: ["group.a", "group.b"]) { _ in nil }
+        #expect(!container.isAvailable)
+        #expect(container.inboxURL == nil)
+        #expect(container.problem?.contains("group.a, group.b") == true)
     }
 }
 

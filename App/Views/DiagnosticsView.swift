@@ -151,6 +151,8 @@ struct DiagnosticsView: View {
         lines.append("Signed: \(install.shareExtensionSigned)")
         if let profile = install.shareExtensionProfile {
             lines += profile.summaryLines.map(\.text)
+        } else {
+            lines.append("Profile: none embedded (uses the app's profile)")
         }
         lines.append("")
         lines.append("## App Group")

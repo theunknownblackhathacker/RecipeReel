@@ -5,27 +5,35 @@ public enum AppGroup {
     /// The App Group this project is designed for.
     public static let preferredIdentifier = "group.com.kevin.recipereel"
 
-    /// Picks the App Group to use.
+    /// App Groups to try, in order. The app and the share extension use the same rule, so they
+    /// agree on the group as long as they see the same profile groups.
     ///
     /// Signing tools (e.g. Feather) take entitlements from the provisioning profile, which may list
-    /// a different group than ours. Rule: our preferred ID if the profile has it; otherwise a group
-    /// whose name contains "recipereel"; otherwise the only/first concrete group; otherwise the preferred ID
-    /// (which then simply won't resolve, and the app reports "App Group unavailable").
-    public static func resolveIdentifier(
+    /// groups unrelated to our ID (e.g. `group.1ee36df74cba27f7.1`). Order: our preferred ID, then
+    /// groups whose name contains "recipereel", then the remaining concrete groups sorted.
+    /// The preferred ID is always included last as a fallback.
+    public static func candidates(
         preferred: String = preferredIdentifier,
         profileGroups: [String]
-    ) -> String {
-        let concrete = profileGroups.filter { !$0.contains("*") }.sorted()
-        if concrete.contains(preferred) { return preferred }
-        if let named = concrete.first(where: { $0.localizedCaseInsensitiveContains("recipereel") }) { return named }
-        return concrete.first ?? preferred
+    ) -> [String] {
+        let concrete = Set(profileGroups.filter { !$0.contains("*") }).sorted()
+        var ordered: [String] = []
+        if concrete.contains(preferred) { ordered.append(preferred) }
+        ordered += concrete.filter { $0 != preferred && $0.localizedCaseInsensitiveContains("recipereel") }
+        ordered += concrete.filter { !ordered.contains($0) }
+        if !ordered.contains(preferred) { ordered.append(preferred) }
+        return ordered
     }
 }
 
 /// The App Group container shared by the app and the share extension, if this install has one.
 public struct SharedContainer: Sendable {
+    /// Our folder inside the group container. Signing services often reuse the same groups for
+    /// many apps, so everything of ours lives under one clearly named folder.
+    public static let folderName = "RecipeReel"
+
     public let groupIdentifier: String
-    /// Nil when iOS didn't grant the App Group (e.g. wildcard provisioning profile).
+    /// Root of our folder inside the group container. Nil when iOS didn't grant any App Group.
     public let url: URL?
     /// Human-readable reason when `url` is nil.
     public let problem: String?
@@ -41,29 +49,37 @@ public struct SharedContainer: Sendable {
     public var extensionLogURL: URL? { url?.appending(path: "Diagnostics/extension.log") }
 
     /// Resolves the container for the current process (app or extension).
-    /// Note: on iOS, `containerURL(forSecurityApplicationGroupIdentifier:)` returns nil when the
-    /// running binary isn't entitled to the group.
-    public static func resolve(profile: ProvisioningInfo?) -> SharedContainer {
-        let identifier = AppGroup.resolveIdentifier(profileGroups: profile?.appGroups ?? [])
-        guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier) else {
-            return SharedContainer(
-                groupIdentifier: identifier,
-                url: nil,
-                problem: "iOS returned no container for \(identifier). The App Group entitlement is missing from this install."
-            )
+    ///
+    /// Tries each candidate group and uses the first one iOS grants. On iOS,
+    /// `containerURL(forSecurityApplicationGroupIdentifier:)` returns nil for groups the running
+    /// binary isn't entitled to, so this also works when a bundle has no embedded profile.
+    public static func resolve(profileGroups: [String]) -> SharedContainer {
+        resolve(candidates: AppGroup.candidates(profileGroups: profileGroups)) { identifier in
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier)
         }
-        do {
-            try FileManager.default.createDirectory(
-                at: url.appending(path: "Inbox", directoryHint: .isDirectory),
-                withIntermediateDirectories: true
-            )
-        } catch {
-            return SharedContainer(
-                groupIdentifier: identifier,
-                url: nil,
-                problem: "App Group container exists but isn't writable: \(error.localizedDescription)"
-            )
+    }
+
+    /// Testable core of `resolve(profileGroups:)`.
+    static func resolve(candidates: [String], containerURL: (String) -> URL?) -> SharedContainer {
+        var tried: [String] = []
+        for identifier in candidates {
+            tried.append(identifier)
+            guard let groupURL = containerURL(identifier) else { continue }
+            let root = groupURL.appending(path: folderName, directoryHint: .isDirectory)
+            do {
+                try FileManager.default.createDirectory(
+                    at: root.appending(path: "Inbox", directoryHint: .isDirectory),
+                    withIntermediateDirectories: true
+                )
+                return SharedContainer(groupIdentifier: identifier, url: root, problem: nil)
+            } catch {
+                continue
+            }
         }
-        return SharedContainer(groupIdentifier: identifier, url: url, problem: nil)
+        return SharedContainer(
+            groupIdentifier: candidates.first ?? AppGroup.preferredIdentifier,
+            url: nil,
+            problem: "No usable App Group. Tried: \(tried.joined(separator: ", ")). The App Group entitlement is missing from this install."
+        )
     }
 }

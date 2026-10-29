@@ -28,14 +28,19 @@ final class ShareModel {
 
     init(context: NSExtensionContext?) {
         self.context = context
-        let profile = ProvisioningInfo.embedded(inBundleAt: Bundle.main.bundleURL)
-        let shared = SharedContainer.resolve(profile: profile)
+        // Feather may not embed a profile in the extension; then use the containing app's profile
+        // (…/RecipeReel.app/PlugIns/RecipeReelShare.appex → …/RecipeReel.app), which lists the
+        // same App Groups the extension was signed with.
+        let ownProfile = ProvisioningInfo.embedded(inBundleAt: Bundle.main.bundleURL)
+        let appURL = Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent()
+        let profile = ownProfile ?? ProvisioningInfo.embedded(inBundleAt: appURL)
+        let shared = SharedContainer.resolve(profileGroups: profile?.appGroups ?? [])
         self.shared = shared
         self.log = DiagnosticsLog(
             fileURL: shared.extensionLogURL
                 ?? URL.temporaryDirectory.appending(path: "extension.log")
         )
-        log.log("share", "Opened. bundle \(Bundle.main.bundleIdentifier ?? "?"), profile app ID \(profile?.bundleIDPattern ?? "none"), App Group \(shared.isAvailable ? shared.groupIdentifier : "unavailable")")
+        log.log("share", "Opened. bundle \(Bundle.main.bundleIdentifier ?? "?"), own profile \(ownProfile == nil ? "none" : "yes"), using profile app ID \(profile?.bundleIDPattern ?? "none"), App Group \(shared.isAvailable ? shared.groupIdentifier : "unavailable")")
     }
 
     var canSave: Bool {
