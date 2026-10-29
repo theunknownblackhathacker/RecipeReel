@@ -51,6 +51,14 @@ WANTED = {ENERGY_KCAL, ENERGY_ATWATER_SPECIFIC, ENERGY_ATWATER_GENERAL, PROTEIN,
 KEEP_TYPES = {"foundation_food", "sr_legacy_food"}
 
 
+class DatasetError(Exception):
+    pass
+
+
+def warning(msg):
+    print(f"::warning title=fdc::{msg}", flush=True)
+
+
 def notice(msg):
     print(f"::notice title=fdc::{msg}", flush=True)
 
@@ -142,7 +150,9 @@ def load_dataset(zf, label):
         }
     if not foods:
         columns = list(food_rows[0].keys()) if food_rows else []
-        fail(f"{label}: no foods kept. food.csv rows={len(food_rows)} columns={columns} data_types={type_counts}")
+        members = [n for n in zf.namelist()][:30]
+        raise DatasetError(f"{label}: no foods kept. food.csv rows={len(food_rows)} columns={columns} "
+                           f"data_types={type_counts} zip members={members}")
 
     nutrients = {}  # fdc_id -> {nutrient_id: amount}
     for row in read_csv(zf, "food_nutrient.csv"):
@@ -207,11 +217,19 @@ def build(out_path):
     s_name, s_zip = download_first(sr_names, "SR Legacy")
 
     all_foods, all_nutrients, all_portions = {}, {}, []
-    for zf, label in ((s_zip, "SR Legacy"), (f_zip, "Foundation Foods")):
-        foods, nutrients, portions = load_dataset(zf, label)
+    used = []
+    for zf, label, name in ((s_zip, "SR Legacy", s_name), (f_zip, "Foundation Foods", f_name)):
+        try:
+            foods, nutrients, portions = load_dataset(zf, label)
+        except DatasetError as exc:
+            if label == "SR Legacy":
+                fail(str(exc))
+            warning(f"Skipping {label}: {exc}")
+            continue
         all_foods.update(foods)
         all_nutrients.update(nutrients)
         all_portions.extend(portions)
+        used.append(name)
 
     if os.path.exists(out_path):
         os.remove(out_path)
@@ -244,7 +262,7 @@ def build(out_path):
     db.execute("INSERT INTO food_fts (description, fdc_id) SELECT description, fdc_id FROM food")
     built = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     db.executemany("INSERT INTO meta VALUES (?, ?)", [
-        ("foundation_file", f_name), ("sr_legacy_file", s_name), ("built_at", built),
+        ("foundation_file", f_name if f_name in used else "skipped"), ("sr_legacy_file", s_name), ("built_at", built),
         ("source", "USDA FoodData Central (public domain, CC0)"), ("schema_version", "1"),
     ])
     db.commit()

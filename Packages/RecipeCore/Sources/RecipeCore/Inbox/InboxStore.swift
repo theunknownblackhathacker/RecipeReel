@@ -124,6 +124,19 @@ public struct InboxStore: Sendable {
         item.videoFileName.map { directoryURL(for: item.id).appending(path: $0) }
     }
 
+    /// Extra files stored next to an item (e.g. `analysis.json`).
+    public func attachmentURL(named name: String, for id: UUID) -> URL {
+        directoryURL(for: id).appending(path: name)
+    }
+
+    public func writeAttachment(_ data: Data, named name: String, for id: UUID) throws {
+        try data.write(to: attachmentURL(named: name, for: id), options: .atomic)
+    }
+
+    public func readAttachment(named name: String, for id: UUID) -> Data? {
+        try? Data(contentsOf: attachmentURL(named: name, for: id))
+    }
+
     // MARK: - Changing
 
     @discardableResult

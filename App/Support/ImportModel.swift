@@ -156,6 +156,33 @@ final class ImportModel {
         refresh()
     }
 
+    // MARK: - Analysis reports (saved next to the item as analysis.json)
+
+    func saveReport(_ report: AnalysisReport, for item: InboxItem) {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try localStore.writeAttachment(try encoder.encode(report), named: AnalysisRunner.reportFileName, for: item.id)
+        } catch {
+            log.log("library", "Saving analysis failed: \(error.localizedDescription)")
+        }
+    }
+
+    func report(for item: InboxItem) -> AnalysisReport? {
+        guard let data = localStore.readAttachment(named: AnalysisRunner.reportFileName, for: item.id) else { return nil }
+        return try? JSONDecoder().decode(AnalysisReport.self, from: data)
+    }
+
+    /// The most recent analysis across all items (for Diagnostics).
+    func latestReport() -> AnalysisReport? {
+        items.compactMap { report(for: $0) }.max { $0.createdAt < $1.createdAt }
+    }
+
+    func item(id: UUID?) -> InboxItem? {
+        guard let id else { return nil }
+        return items.first { $0.id == id }
+    }
+
     // MARK: - Helpers
 
     private static func describe(_ item: InboxItem) -> String {

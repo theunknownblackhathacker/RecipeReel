@@ -53,6 +53,7 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
+        NSSpeechRecognitionUsageDescription: RecipeReel transcribes the recipe video's audio on your iPhone to find ingredients and steps. Nothing leaves the device.
         # "Open in RecipeReel" for video files. Files are copied in (not opened in place).
         LSSupportsOpeningDocumentsInPlace: false
         CFBundleDocumentTypes:

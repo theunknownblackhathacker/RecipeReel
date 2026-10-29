@@ -1,15 +1,35 @@
 import PhotosUI
+import SwiftData
 import SwiftUI
 import RecipeCore
 
+/// Home screen: saved recipes, imports waiting to become recipes, and ways to add more.
 struct ImportView: View {
     @Environment(ImportModel.self) private var model
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
     @State private var pickerItem: PhotosPickerItem?
     @State private var showingCaptionSheet = false
 
     var body: some View {
         @Bindable var model = model
         List {
+            if !recipes.isEmpty {
+                Section("Recipes") {
+                    ForEach(recipes) { recipe in
+                        NavigationLink {
+                            RecipeView(recipe: recipe)
+                        } label: {
+                            RecipeRow(recipe: recipe)
+                        }
+                    }
+                    .onDelete { offsets in
+                        for index in offsets { context.delete(recipes[index]) }
+                        try? context.save()
+                    }
+                }
+            }
+
             Section {
                 PhotosPicker(selection: $pickerItem, matching: .videos) {
                     Label("Choose a video", systemImage: "video.badge.plus")
@@ -37,14 +57,14 @@ struct ImportView: View {
                 }
             }
 
-            Section("Imported") {
+            Section {
                 if model.items.isEmpty {
                     Text("Nothing imported yet.")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(model.items) { item in
                         NavigationLink(value: item.id) {
-                            ImportRow(item: item)
+                            ImportRow(item: item, hasRecipe: recipes.contains { $0.sourceItemID == item.id })
                         }
                     }
                     .onDelete { offsets in
@@ -52,6 +72,10 @@ struct ImportView: View {
                         doomed.forEach(model.delete)
                     }
                 }
+            } header: {
+                Text("Imports")
+            } footer: {
+                Text("Open an import and tap Make recipe.")
             }
         }
         .navigationTitle("RecipeReel")
@@ -86,8 +110,29 @@ struct ImportView: View {
     }
 }
 
+struct RecipeRow: View {
+    let recipe: Recipe
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(recipe.title)
+                .lineLimit(1)
+            HStack(spacing: 6) {
+                Text("\(recipe.ingredients.count) ingredients · \(recipe.steps.count) steps")
+                if recipe.flaggedCount > 0 {
+                    Label("\(recipe.flaggedCount) to review", systemImage: "exclamationmark.circle")
+                        .foregroundStyle(.orange)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
 struct ImportRow: View {
     let item: InboxItem
+    var hasRecipe = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -101,6 +146,12 @@ struct ImportRow: View {
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if hasRecipe {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityLabel("Recipe made")
             }
         }
     }
