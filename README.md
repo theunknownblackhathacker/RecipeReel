@@ -7,8 +7,10 @@ ingredient list, cooking steps and macros — entirely on-device, free to run.
 
 - `project.yml` is the Xcode project definition ([XcodeGen](https://github.com/yonaskolb/XcodeGen)).
   The `.xcodeproj`, `Info.plist` and `.entitlements` files are generated in CI and git-ignored.
-- **Build** workflow: runs on every push — RecipeCore unit tests + an unsigned app build.
-- **Release IPA** workflow: run it manually (Actions → Release IPA → Run workflow). It publishes the
+- **Build** workflow: every push to `main` runs the RecipeCore tests, builds the unsigned app and publishes
+  **https://github.com/theunknownblackhathacker/RecipeReel/releases/download/latest/RecipeReel.ipa**
+  (also on the `builds` branch). A readable build summary goes to the `build-logs` branch.
+- **Release IPA** workflow (optional, numbered builds): run it manually (Actions → Release IPA → Run workflow). It publishes the
   **unsigned** `.ipa` as a GitHub Release: https://github.com/theunknownblackhathacker/RecipeReel/releases/latest/download/RecipeReel.ipa
 - Sign and install the `.ipa` yourself (e.g. Feather). Keep the bundle IDs unchanged and keep the
   app extension (PlugIns) so the share extension is re-signed too.

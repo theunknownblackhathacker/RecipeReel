@@ -1,10 +1,22 @@
 name: Build
 
-# Every push: run RecipeCore unit tests, then build the app (unsigned) to prove it compiles.
+# Every push to main (same setup as Stillread):
+#   1. RecipeCore unit tests
+#   2. Unsigned Release build of the app + share extension
+#   3. RecipeReel.ipa published to the "latest" release and the "builds" branch
+#   4. A readable build summary pushed to the "build-logs" branch (always, even on failure)
+#
+# Stable download links:
+#   https://github.com/<owner>/<repo>/releases/download/latest/RecipeReel.ipa
+#   https://github.com/<owner>/<repo>/raw/builds/RecipeReel.ipa
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: build-${{ github.ref }}
@@ -33,27 +45,99 @@ jobs:
         working-directory: Packages/RecipeCore
         run: |
           set -o pipefail
-          swift test 2>&1 | tee "$RUNNER_TEMP/swift-test.log" || {
-            python3 "$GITHUB_WORKSPACE/.github/scripts/annotate-errors.py" "$RUNNER_TEMP/swift-test.log" "swift test failed"
+          swift test 2>&1 | tee "$GITHUB_WORKSPACE/test.log" || {
+            python3 "$GITHUB_WORKSPACE/.github/scripts/annotate-errors.py" "$GITHUB_WORKSPACE/test.log" "swift test failed"
             exit 1
           }
 
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build app + share extension (unsigned)
+      - name: Build app + share extension (unsigned, Release)
         run: |
           set -o pipefail
           xcodebuild build \
             -project RecipeReel.xcodeproj \
             -scheme RecipeReel \
-            -configuration Debug \
+            -configuration Release \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            -quiet 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" || {
-            python3 .github/scripts/annotate-errors.py "$RUNNER_TEMP/xcodebuild.log" "xcodebuild failed"
+            2>&1 | tee build.log || {
+            python3 .github/scripts/annotate-errors.py build.log "xcodebuild failed"
             exit 1
           }
+
+      - name: Publish build log to build-logs branch
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          mkdir -p logs
+          {
+            echo "Commit: $GITHUB_SHA"
+            echo "Run: ${{ github.run_number }}"
+            echo "Result: ${{ job.status }}"
+            echo
+            echo "== Unit tests =="
+            if [ -f test.log ]; then
+              grep -E "✘|✔ Test run|error:" test.log | sort -u | head -80 || true
+            else
+              echo "(not run)"
+            fi
+            echo
+            echo "== Errors and warnings in our sources =="
+            [ -f build.log ] && grep -E "(error|warning): " build.log | grep -E "/(App|ShareExtension|Packages)/" | sort -u || true
+            echo
+            echo "== Other errors =="
+            [ -f build.log ] && grep -E "error: " build.log | grep -vE "/(App|ShareExtension|Packages)/" | sort -u | head -50 || true
+            echo
+            echo "== Last 80 lines of build log =="
+            [ -f build.log ] && tail -n 80 build.log || true
+          } > logs/build-summary.txt
+          [ -f test.log ] && tail -n 200 test.log > logs/test-tail.txt || true
+          cd logs
+          git init -q -b build-logs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Build log for $GITHUB_SHA"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" build-logs
+
+      - name: Package IPA
+        run: |
+          set -euo pipefail
+          APP="build/Build/Products/Release-iphoneos/RecipeReel.app"
+          test -d "$APP/PlugIns/RecipeReelShare.appex" || { echo "::error::Share extension missing from PlugIns"; exit 1; }
+          rm -rf Payload && mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry RecipeReel.ipa Payload
+          ls -lh RecipeReel.ipa
+
+      - name: Publish "latest" release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest RecipeReel.ipa \
+            --target "$GITHUB_SHA" \
+            --title "Latest build ${{ github.run_number }} ($(git rev-parse --short HEAD))" \
+            --notes "Unsigned build of $GITHUB_SHA. Sign it with your own certificate (e.g. Feather), keeping the bundle ID and extensions." \
+            --prerelease
+          echo "::notice title=IPA ready::https://github.com/${{ github.repository }}/releases/download/latest/RecipeReel.ipa"
+
+      - name: Push IPA to builds branch
+        if: github.event_name != 'pull_request'
+        run: |
+          rm -rf out && mkdir out
+          cp RecipeReel.ipa out/
+          cd out
+          git init -q -b builds
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add RecipeReel.ipa
+          git commit -q -m "IPA for $GITHUB_SHA (build ${{ github.run_number }})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" builds
