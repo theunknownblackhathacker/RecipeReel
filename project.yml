@@ -1,0 +1,108 @@
+# XcodeGen spec — the single source of truth for the Xcode project.
+# CI runs `xcodegen generate`; never edit the .xcodeproj, Info.plist or .entitlements files by hand
+# (they are generated from this file and are git-ignored).
+name: RecipeReel
+
+options:
+  bundleIdPrefix: com.kevin
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    DEAD_CODE_STRIPPING: YES
+    ENABLE_PREVIEWS: YES
+
+packages:
+  RecipeCore:
+    path: Packages/RecipeCore
+
+targets:
+  RecipeReel:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: RecipeCore
+      - target: RecipeReelShare   # embedded into RecipeReel.app/PlugIns
+    settings:
+      base:
+        PRODUCT_NAME: RecipeReel
+        PRODUCT_BUNDLE_IDENTIFIER: com.kevin.recipereel
+    entitlements:
+      path: App/RecipeReel.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kevin.recipereel
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: RecipeReel
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+        # "Open in RecipeReel" for video files. Files are copied in (not opened in place).
+        LSSupportsOpeningDocumentsInPlace: false
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Video
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.movie
+              - public.mpeg-4
+              - com.apple.quicktime-movie
+
+  RecipeReelShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+    dependencies:
+      - package: RecipeCore
+    settings:
+      base:
+        PRODUCT_NAME: RecipeReelShare
+        # Must stay prefixed by the app's bundle ID, or iOS rejects the extension.
+        PRODUCT_BUNDLE_IDENTIFIER: com.kevin.recipereel.share
+    entitlements:
+      path: ShareExtension/RecipeReelShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kevin.recipereel
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: RecipeReel
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsMovieWithMaxCount: 1
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+
+schemes:
+  RecipeReel:
+    build:
+      targets:
+        RecipeReel: all
+        RecipeReelShare: all
+    run:
+      config: Debug
+    archive:
+      config: Release

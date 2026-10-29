@@ -1,0 +1,51 @@
+name: Build
+
+# Every push: run RecipeCore unit tests, then build the app (unsigned) to prove it compiles.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Toolchain versions
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          xcodegen --version
+
+      - name: Unit tests (RecipeCore)
+        working-directory: Packages/RecipeCore
+        run: swift test
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build app + share extension (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project RecipeReel.xcodeproj \
+            -scheme RecipeReel \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            -quiet

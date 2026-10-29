@@ -1,0 +1,131 @@
+import Foundation
+import Testing
+@testable import RecipeCore
+
+@Suite("ProvisioningInfo")
+struct ProvisioningInfoTests {
+
+    private func profileBlob(appID: String, groups: [String]?) -> Data {
+        let groupsXML = groups.map { list in
+            "<key>com.apple.security.application-groups</key><array>"
+                + list.map { "<string>\($0)</string>" }.joined()
+                + "</array>"
+        } ?? ""
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Name</key><string>Test Profile</string>
+            <key>TeamName</key><string>Kevin Test</string>
+            <key>ExpirationDate</key><date>2027-01-01T00:00:00Z</date>
+            <key>Entitlements</key>
+            <dict>
+                <key>application-identifier</key><string>\(appID)</string>
+                <key>get-task-allow</key><false/>
+                \(groupsXML)
+            </dict>
+        </dict>
+        </plist>
+        """
+        // Real profiles wrap the plist in binary CMS data: simulate junk on both sides.
+        return Data([0x30, 0x82, 0x1F, 0x00, 0xFF]) + Data(xml.utf8) + Data([0x00, 0xA0, 0x82])
+    }
+
+    @Test func parsesExplicitProfileWithAppGroups() throws {
+        let info = try #require(ProvisioningInfo.parse(
+            profileBlob(appID: "ABCDE12345.com.kevin.recipereel", groups: ["group.com.kevin.recipereel"])
+        ))
+        #expect(info.name == "Test Profile")
+        #expect(info.teamName == "Kevin Test")
+        #expect(info.applicationIdentifier == "ABCDE12345.com.kevin.recipereel")
+        #expect(info.bundleIDPattern == "com.kevin.recipereel")
+        #expect(info.isWildcard == false)
+        #expect(info.appGroups == ["group.com.kevin.recipereel"])
+        #expect(info.getTaskAllow == false)
+        #expect(info.expirationDate == Date(timeIntervalSince1970: 1_798_761_600))
+    }
+
+    @Test func detectsWildcardProfile() throws {
+        let info = try #require(ProvisioningInfo.parse(profileBlob(appID: "ABCDE12345.*", groups: nil)))
+        #expect(info.isWildcard)
+        #expect(info.bundleIDPattern == "*")
+        #expect(info.appGroups.isEmpty)
+    }
+
+    @Test func garbageReturnsNil() {
+        #expect(ProvisioningInfo.parse(Data("no plist here".utf8)) == nil)
+    }
+}
+
+@Suite("AppGroup")
+struct AppGroupTests {
+    let preferred = "group.com.kevin.recipereel"
+
+    @Test func usesPreferredWhenProfileHasIt() {
+        #expect(AppGroup.resolveIdentifier(preferred: preferred,
+                                           profileGroups: ["group.other", preferred]) == preferred)
+    }
+
+    @Test func fallsBackToRecipeReelNamedGroup() {
+        #expect(AppGroup.resolveIdentifier(preferred: preferred,
+                                           profileGroups: ["group.zzz", "group.x.RecipeReel"]) == "group.x.RecipeReel")
+    }
+
+    @Test func fallsBackToFirstConcreteGroup() {
+        #expect(AppGroup.resolveIdentifier(preferred: preferred,
+                                           profileGroups: ["group.b", "group.a", "group.*"]) == "group.a")
+    }
+
+    @Test func usesPreferredWhenProfileHasNone() {
+        #expect(AppGroup.resolveIdentifier(preferred: preferred, profileGroups: []) == preferred)
+    }
+}
+
+@Suite("DiagnosticsLog")
+struct DiagnosticsLogTests {
+
+    private func tempLogURL() -> URL {
+        FileManager.default.temporaryDirectory
+            .appending(path: "RecipeCoreTests-\(UUID().uuidString)/test.log")
+    }
+
+    @Test func appendsAndReadsLines() {
+        let log = DiagnosticsLog(fileURL: tempLogURL())
+        log.log("import", "first")
+        log.log("import", "second")
+        let lines = log.readAll().split(separator: "\n")
+        #expect(lines.count == 2)
+        #expect(lines[0].hasSuffix("[import] first"))
+        #expect(lines[1].hasSuffix("[import] second"))
+    }
+
+    @Test func clearRemovesEverything() {
+        let log = DiagnosticsLog(fileURL: tempLogURL())
+        log.log("x", "y")
+        log.clear()
+        #expect(log.readAll().isEmpty)
+    }
+
+    @Test func trimsWhenTooLarge() throws {
+        let url = tempLogURL()
+        let log = DiagnosticsLog(fileURL: url, maxBytes: 2_000)
+        for i in 0..<200 {
+            log.log("spam", "line number \(i)")
+        }
+        let size = try #require(try url.resourceValues(forKeys: [.fileSizeKey]).fileSize)
+        #expect(size <= 2_000)
+        #expect(log.readAll().contains("line number 199"))
+        #expect(!log.readAll().contains("line number 0\n"))
+    }
+
+    @Test func concurrentWritesAreAllKept() async {
+        let log = DiagnosticsLog(fileURL: tempLogURL())
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0..<50 {
+                group.addTask { log.log("task", "write \(i)") }
+            }
+        }
+        #expect(log.readAll().split(separator: "\n").count == 50)
+    }
+}
