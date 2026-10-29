@@ -1,0 +1,39 @@
+name: Build FDC database
+
+# Manual trigger: downloads USDA FoodData Central (Foundation Foods + SR Legacy CSVs, public domain),
+# builds App/Resources/fdc.sqlite on a Linux runner, commits it, then starts the Build workflow
+# (pushes made with GITHUB_TOKEN don't trigger workflows by themselves).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  fdc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Build fdc.sqlite
+        run: python3 tools/build_fdc.py --out App/Resources/fdc.sqlite
+
+      - name: Commit database
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f App/Resources/fdc.sqlite
+          if git diff --cached --quiet; then
+            echo "Database unchanged"
+          else
+            git commit -m "Update fdc.sqlite (USDA FoodData Central)"
+            git push
+          fi
+
+      - name: Start Build workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --ref main --repo "${{ github.repository }}"
