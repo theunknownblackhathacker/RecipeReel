@@ -64,7 +64,7 @@ public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching {
 
     public init() {}
 
-    private var options: GenerationOptions { GenerationOptions(sampling: .greedy) }
+    private var options: GenerationOptions { GenerationOptions(samplingMode: .greedy) }
 
     public func extractIngredients(from source: String) async throws -> RawRecipe {
         let session = LanguageModelSession(instructions: Prompts.ingredientInstructions)

@@ -190,7 +190,8 @@ struct PipelineMockTests {
         let testCase = ExtractionSelfTest.cases[0]
         let report = await runCase(0, extractor: extractor)
         let checks = ExtractionSelfTest.evaluate(testCase, outcome: report.outcome)
-        #expect(checks.allSatisfy(\.passed), "\(checks.filter { !$0.passed }.map(\.message))")
+        let failures = checks.filter { !$0.passed }.map(\.message)
+        #expect(failures.isEmpty, "\(failures)")
     }
 
     @Test func choiceParsing() {

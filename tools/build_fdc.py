@@ -213,23 +213,35 @@ def macro_row(fid, n):
 
 def build(out_path):
     foundation_names, sr_names = find_zip_names()
-    f_name, f_zip = download_first(foundation_names, "Foundation Foods")
     s_name, s_zip = download_first(sr_names, "SR Legacy")
 
     all_foods, all_nutrients, all_portions = {}, {}, []
     used = []
-    for zf, label, name in ((s_zip, "SR Legacy", s_name), (f_zip, "Foundation Foods", f_name)):
+    try:
+        foods, nutrients, portions = load_dataset(s_zip, "SR Legacy")
+    except DatasetError as exc:
+        fail(str(exc))
+    all_foods.update(foods)
+    all_nutrients.update(nutrients)
+    all_portions.extend(portions)
+    used.append(s_name)
+
+    # Newest Foundation release that has the expected files (a release may ship without food.csv).
+    f_name = "skipped"
+    for candidate in foundation_names[:4]:
         try:
-            foods, nutrients, portions = load_dataset(zf, label)
-        except DatasetError as exc:
-            if label == "SR Legacy":
-                fail(str(exc))
-            warning(f"Skipping {label}: {exc}")
+            name, zf = download_first([candidate], "Foundation Foods")
+            foods, nutrients, portions = load_dataset(zf, f"Foundation Foods ({candidate})")
+        except (DatasetError, SystemExit) as exc:
+            warning(f"Skipping {candidate}: {exc}")
             continue
+        # SR Legacy and Foundation use different fdc_ids, so both can be kept.
         all_foods.update(foods)
         all_nutrients.update(nutrients)
         all_portions.extend(portions)
         used.append(name)
+        f_name = name
+        break
 
     if os.path.exists(out_path):
         os.remove(out_path)
