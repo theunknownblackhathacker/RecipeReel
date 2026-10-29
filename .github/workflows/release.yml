@@ -1,7 +1,10 @@
 name: Release IPA
 
-# Manual trigger: builds an UNSIGNED .ipa (app + embedded share extension).
-# Sign and install it yourself (e.g. with Feather). No signing material ever goes in this repo.
+# Manual trigger: builds an UNSIGNED .ipa (app + embedded share extension) and publishes it
+# as a GitHub Release asset, so you get a plain .ipa download (no zip).
+#   This build:   https://github.com/<owner>/<repo>/releases/download/build-<N>/RecipeReel.ipa
+#   Always latest: https://github.com/<owner>/<repo>/releases/latest/download/RecipeReel.ipa
+# Sign and install it yourself (e.g. Feather). No signing material ever goes in this repo.
 on:
   workflow_dispatch:
     inputs:
@@ -9,6 +12,9 @@ on:
         description: "Include the share extension (turn off if your signing tool fails to install it)"
         type: boolean
         default: true
+
+permissions:
+  contents: write   # needed to create the release
 
 jobs:
   ipa:
@@ -39,7 +45,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            -quiet
+            -quiet 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" || {
+            python3 .github/scripts/annotate-errors.py "$RUNNER_TEMP/xcodebuild.log" "xcodebuild failed"
+            exit 1
+          }
 
       - name: Package .ipa
         run: |
@@ -55,24 +64,28 @@ jobs:
             rm -rf out/Payload/RecipeReel.app/PlugIns
             echo "Share extension removed (input include_share_extension=false)"
           fi
-
-          IPA="RecipeReel-${{ github.run_number }}.ipa"
-          (cd out && zip -qry "$IPA" Payload && rm -rf Payload)
-          cp App/RecipeReel.entitlements ShareExtension/RecipeReelShare.entitlements out/
-
-          PB=/usr/libexec/PlistBuddy
-          {
-            echo "### RecipeReel build ${{ github.run_number }}"
-            echo "- App: \`$($PB -c 'Print CFBundleIdentifier' "$APP/Info.plist")\` $($PB -c 'Print CFBundleShortVersionString' "$APP/Info.plist") ($($PB -c 'Print CFBundleVersion' "$APP/Info.plist"))"
-            echo "- Share extension: \`$($PB -c 'Print CFBundleIdentifier' "$APPEX/Info.plist")\` (included: ${{ inputs.include_share_extension }})"
-            echo "- IPA size: $(du -h "out/$IPA" | cut -f1)"
-          } >> "$GITHUB_STEP_SUMMARY"
+          (cd out && zip -qry RecipeReel.ipa Payload && rm -rf Payload)
           ls -la out
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: RecipeReel-ipa-${{ github.run_number }}
-          path: out/
-          retention-days: 30
-          if-no-files-found: error
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="build-${{ github.run_number }}"
+          PB=/usr/libexec/PlistBuddy
+          INFO="build/Build/Products/Release-iphoneos/RecipeReel.app/Info.plist"
+          VERSION="$($PB -c 'Print CFBundleShortVersionString' "$INFO") ($($PB -c 'Print CFBundleVersion' "$INFO"))"
+          gh release create "$TAG" out/RecipeReel.ipa \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "RecipeReel $VERSION" \
+            --notes "Unsigned IPA from commit ${{ github.sha }}. Share extension included: ${{ inputs.include_share_extension }}. Sign it yourself (e.g. Feather), keeping the bundle ID and extensions."
+          URL="https://github.com/${{ github.repository }}/releases/download/$TAG/RecipeReel.ipa"
+          {
+            echo "### RecipeReel $VERSION"
+            echo "- IPA: $URL"
+            echo "- Latest: https://github.com/${{ github.repository }}/releases/latest/download/RecipeReel.ipa"
+            echo "- Share extension included: ${{ inputs.include_share_extension }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=IPA ready::$URL"
