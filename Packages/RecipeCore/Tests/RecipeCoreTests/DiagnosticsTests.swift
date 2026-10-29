@@ -113,7 +113,8 @@ struct DiagnosticsLogTests {
         for i in 0..<200 {
             log.log("spam", "line number \(i)")
         }
-        let size = try #require(try url.resourceValues(forKeys: [.fileSizeKey]).fileSize)
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))
+        let size = try #require(attributes[.size] as? NSNumber).intValue
         #expect(size <= 2_000)
         #expect(log.readAll().contains("line number 199"))
         #expect(!log.readAll().contains("line number 0\n"))

@@ -48,20 +48,26 @@ public final class DiagnosticsLog: Sendable {
             try? data.write(to: fileURL, options: .atomic)
             return
         }
-        if let handle = try? FileHandle(forWritingTo: fileURL) {
-            defer { try? handle.close() }
-            _ = try? handle.seekToEnd()
-            try? handle.write(contentsOf: data)
+        guard let handle = try? FileHandle(forWritingTo: fileURL) else { return }
+        // Size comes from the handle, not URL.resourceValues (which caches stale sizes).
+        let newSize: UInt64
+        do {
+            let end = try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+            newSize = end + UInt64(data.count)
+        } catch {
+            try? handle.close()
+            return
         }
-        trimIfNeededUnlocked()
+        try? handle.close()
+        if newSize > UInt64(maxBytes) {
+            trimUnlocked()
+        }
     }
 
-    /// Keeps roughly the newest half once the file passes `maxBytes`.
-    private func trimIfNeededUnlocked() {
-        guard let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
-              size > maxBytes,
-              let data = try? Data(contentsOf: fileURL)
-        else { return }
+    /// Keeps roughly the newest half of `maxBytes`, starting at a line boundary.
+    private func trimUnlocked() {
+        guard let data = try? Data(contentsOf: fileURL) else { return }
         var keep = data.suffix(maxBytes / 2)
         if let newline = keep.firstIndex(of: UInt8(ascii: "\n")) {
             keep = keep[keep.index(after: newline)...]
