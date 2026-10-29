@@ -102,6 +102,16 @@ def read_csv(zf, filename):
         return list(csv.DictReader(text))
 
 
+def normalize_type(value):
+    """'foundation_food', 'Foundation', 'SR Legacy' → canonical names."""
+    v = (value or "").strip().lower().replace(" ", "_")
+    if v in ("foundation", "foundation_food", "foundation_foods"):
+        return "foundation_food"
+    if v in ("sr_legacy", "sr_legacy_food", "sr_legacy_foods"):
+        return "sr_legacy_food"
+    return v
+
+
 def to_float(value):
     try:
         if value is None or value == "":
@@ -114,17 +124,25 @@ def to_float(value):
 def load_dataset(zf, label):
     foods = {}
     categories = {row["id"]: row.get("description", "") for row in read_csv(zf, "food_category.csv")}
-    for row in read_csv(zf, "food.csv"):
-        if row.get("data_type") not in KEEP_TYPES:
+    food_rows = read_csv(zf, "food.csv")
+    type_counts = {}
+    for row in food_rows:
+        dt = row.get("data_type") or ""
+        type_counts[dt] = type_counts.get(dt, 0) + 1
+    print(f"{label}: zip members {[n for n in zf.namelist() if n.endswith('.csv')][:40]}")
+    print(f"{label}: food.csv data_type counts {type_counts}")
+    for row in food_rows:
+        if normalize_type(row.get("data_type")) not in KEEP_TYPES:
             continue
         fid = int(row["fdc_id"])
         foods[fid] = {
             "description": (row.get("description") or "").strip(),
-            "data_type": row["data_type"],
+            "data_type": normalize_type(row["data_type"]),
             "category": categories.get(row.get("food_category_id") or "", ""),
         }
     if not foods:
-        fail(f"{label}: no foods found in food.csv")
+        columns = list(food_rows[0].keys()) if food_rows else []
+        fail(f"{label}: no foods kept. food.csv rows={len(food_rows)} columns={columns} data_types={type_counts}")
 
     nutrients = {}  # fdc_id -> {nutrient_id: amount}
     for row in read_csv(zf, "food_nutrient.csv"):
