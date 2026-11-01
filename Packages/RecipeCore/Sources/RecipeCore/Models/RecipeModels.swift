@@ -8,8 +8,11 @@ import SwiftData
 public final class Recipe {
     public var id: UUID
     public var title: String
-    /// How many servings the recipe makes (≥ 1).
+    /// How many servings you're cooking (≥ 1). Ingredient amounts are scaled from `yield` to this.
     public var servings: Int
+    /// How many servings the stored amounts make (the video's yield). 0 = not set yet (older recipes:
+    /// treated as equal to `servings`).
+    public var yieldServings: Int = 0
     /// True when the video stated the servings.
     public var servingsStated: Bool
     public var createdAt: Date
@@ -30,6 +33,7 @@ public final class Recipe {
         self.id = UUID()
         self.title = title
         self.servings = max(1, servings)
+        self.yieldServings = max(1, servings)
         self.servingsStated = servingsStated
         self.createdAt = Date()
         self.sourceItemID = sourceItemID
@@ -40,6 +44,12 @@ public final class Recipe {
     }
 
     public var sortedIngredients: [Ingredient] { ingredients.sorted { $0.order < $1.order } }
+
+    /// The servings the stored amounts make.
+    public var yield: Int { yieldServings > 0 ? yieldServings : max(1, servings) }
+
+    /// Multiply stored amounts by this to cook `servings`.
+    public var scaleFactor: Double { Scaling.factor(cookingFor: servings, yield: yield) }
     public var sortedSteps: [Step] { steps.sorted { $0.order < $1.order } }
 
     /// Items needing attention on the review screen.

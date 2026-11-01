@@ -329,7 +329,8 @@ struct CookModeView: View {
 
     private func ingredientLine(_ name: String) -> String {
         guard let ingredient = recipe.ingredients.first(where: { $0.name == name }) else { return "• \(name)" }
-        let amount = RecipeMath.amountText(quantity: ingredient.quantity, unit: ingredient.unit)
+        let amount = RecipeMath.amountText(quantity: Scaling.scaled(ingredient.quantity, unit: ingredient.unit, factor: recipe.scaleFactor),
+                                           unit: ingredient.unit)
         return "• \(amount == "?" ? "" : amount + " ")\(name)"
     }
 }

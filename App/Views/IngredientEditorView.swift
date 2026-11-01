@@ -7,6 +7,8 @@ import RecipeCore
 struct IngredientEditorView: View {
     let ingredient: Ingredient?
     let recipe: Recipe
+    /// Amounts are shown scaled to "cooking for"; they're stored at the recipe's yield.
+    var factor: Double = 1
     let onSave: () -> Void
 
     @Environment(AppServices.self) private var services
@@ -110,9 +112,8 @@ struct IngredientEditorView: View {
         loaded = true
         guard let ingredient else { return }
         name = ingredient.name
-        quantityText = RecipeMath.quantityText(ingredient.quantity).replacingOccurrences(of: "½", with: ".5")
-        if quantityText.hasPrefix(".") { quantityText = "0" + quantityText }
-        if let q = ingredient.quantity, q != q.rounded() { quantityText = String(format: "%g", q) }
+        let shown = Scaling.scaled(ingredient.quantity, unit: ingredient.unit, factor: factor)
+        quantityText = shown.map { $0 == $0.rounded() ? String(Int($0)) : String(format: "%g", $0) } ?? ""
         unit = ingredient.unit
         note = ingredient.note
         fdcID = ingredient.fdcID
@@ -121,7 +122,8 @@ struct IngredientEditorView: View {
 
     private func save() {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        let quantity = unit == .toTaste ? nil : RecipeMath.parseQuantity(quantityText)
+        // Typed amount is for "cooking for"; store it at the recipe's yield.
+        let quantity = unit == .toTaste ? nil : Scaling.unscaled(RecipeMath.parseQuantity(quantityText), factor: factor)
         let target: Ingredient
         if let ingredient {
             target = ingredient

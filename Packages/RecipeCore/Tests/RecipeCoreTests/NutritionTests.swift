@@ -281,3 +281,33 @@ struct USDAValueTests {
         #expect(!db.search(ingredientName: "chicken breast").isEmpty)
     }
 }
+
+@Suite("Scaling servings")
+struct ScalingTests {
+
+    @Test func factorAndRounding() {
+        #expect(Scaling.factor(cookingFor: 4, yield: 8) == 0.5)
+        #expect(Scaling.factor(cookingFor: 3, yield: 2) == 1.5)
+        #expect(Scaling.factor(cookingFor: 0, yield: 0) == 1)
+        #expect(Scaling.scaled(1360, unit: .g, factor: 0.5) == 680)
+        #expect(Scaling.scaled(75, unit: .g, factor: 1 / 3) == 25)
+        #expect(Scaling.scaled(3, unit: .tbsp, factor: 0.5) == 1.5)
+        #expect(Scaling.scaled(1, unit: .piece, factor: 1.5) == 1.5)
+        #expect(Scaling.scaled(2, unit: .piece, factor: 1 / 3) == 0.75)     // nearest quarter
+        #expect(Scaling.scaled(nil, unit: .toTaste, factor: 2) == nil)
+        #expect(Scaling.unscaled(680, factor: 0.5) == 1360)
+    }
+
+    @Test func perServingStaysTheSameWhenScaling() {
+        let rice = FoodRecord(fdcID: 168881, description: "Rice", nutrients: FoodNutrients(kcal: 358, protein: 6.5, fat: 0.52, carbs: 79.15))
+        func summary(cookingFor: Int) -> RecipeNutrition {
+            let factor = Scaling.factor(cookingFor: cookingFor, yield: 8)
+            let line = NutritionCalculator.evaluate(quantity: Scaling.scaled(480, unit: .g, factor: factor), unit: .g, food: rice)
+            return NutritionCalculator.summarize([line], servings: cookingFor)
+        }
+        let full = summary(cookingFor: 8)
+        let half = summary(cookingFor: 4)
+        #expect(abs(half.total.kcal - full.total.kcal / 2) < 0.01)
+        #expect(abs(half.perServing.kcal - full.perServing.kcal) < 0.01)
+    }
+}

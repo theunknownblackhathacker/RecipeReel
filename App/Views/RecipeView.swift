@@ -30,20 +30,37 @@ struct RecipeView: View {
 
     var body: some View {
         let ingredients = recipe.sortedIngredients
-        let lines = ingredients.map { nutrition(for: $0) }
+        let factor = recipe.scaleFactor
+        let lines = ingredients.map { nutrition(for: $0, factor: factor) }
         let summary = NutritionCalculator.summarize(lines, servings: recipe.servings)
 
         List {
             Section {
                 TextField("Recipe name", text: $recipe.title, axis: .vertical)
                     .font(.title2.bold())
-                Stepper(value: $recipe.servings, in: 1...50) {
-                    Text("Makes \(recipe.servings) serving\(recipe.servings == 1 ? "" : "s")")
+                Stepper(value: yieldBinding, in: 1...50) {
+                    Text("Recipe makes \(recipe.yield) serving\(recipe.yield == 1 ? "" : "s")")
                 }
                 if !recipe.servingsStated {
-                    Text("The video didn't say how many servings — set it here.")
+                    Text("The video didn't say how many servings the amounts make — set it here.")
                         .font(.footnote)
                         .foregroundStyle(.orange)
+                }
+                Stepper(value: servingsBinding, in: 1...100) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Cooking for \(recipe.servings)")
+                        if recipe.servings != recipe.yield {
+                            Text("Amounts × \(RecipeMath.quantityText((factor * 100).rounded() / 100))")
+                                .font(.caption)
+                                .foregroundStyle(.tint)
+                        }
+                    }
+                }
+                if recipe.servings != recipe.yield {
+                    Button("Back to \(recipe.yield) serving\(recipe.yield == 1 ? "" : "s")") {
+                        recipe.servings = recipe.yield
+                    }
+                    .font(.footnote)
                 }
             }
 
@@ -69,7 +86,7 @@ struct RecipeView: View {
                         Button {
                             editingIngredient = ingredient
                         } label: {
-                            IngredientRow(ingredient: ingredient, nutrition: line)
+                            IngredientRow(ingredient: ingredient, nutrition: line, factor: factor)
                         }
                         .buttonStyle(.plain)
                     }
@@ -112,7 +129,11 @@ struct RecipeView: View {
             } header: {
                 Text("Steps")
             } footer: {
-                if !steps.isEmpty { Text("Tap a step to mark it done.") }
+                if !steps.isEmpty {
+                    Text(recipe.servings != recipe.yield
+                         ? "Tap a step to mark it done. Amounts written in the steps are for \(recipe.yield) servings; use the scaled ingredient list."
+                         : "Tap a step to mark it done.")
+                }
             }
 
             Section {
@@ -168,10 +189,10 @@ struct RecipeView: View {
             loadFoods()
         }
         .sheet(item: $editingIngredient) { ingredient in
-            IngredientEditorView(ingredient: ingredient, recipe: recipe) { loadFoods() }
+            IngredientEditorView(ingredient: ingredient, recipe: recipe, factor: recipe.scaleFactor) { loadFoods() }
         }
         .sheet(isPresented: $addingIngredient) {
-            IngredientEditorView(ingredient: nil, recipe: recipe) { loadFoods() }
+            IngredientEditorView(ingredient: nil, recipe: recipe, factor: recipe.scaleFactor) { loadFoods() }
         }
         .sheet(isPresented: $editingSteps) {
             StepsEditorView(recipe: recipe)
@@ -270,9 +291,32 @@ struct RecipeView: View {
         }
     }
 
-    private func nutrition(for ingredient: Ingredient) -> IngredientNutrition {
+    /// "Cooking for": pins the yield first on older recipes that didn't store one.
+    private var servingsBinding: Binding<Int> {
+        Binding(
+            get: { recipe.servings },
+            set: { newValue in
+                if recipe.yieldServings == 0 { recipe.yieldServings = recipe.servings }
+                recipe.servings = newValue
+            }
+        )
+    }
+
+    /// Changing what the recipe makes keeps "cooking for" in step (no scaling until you change that).
+    private var yieldBinding: Binding<Int> {
+        Binding(
+            get: { recipe.yield },
+            set: { newValue in
+                let keepScaling = recipe.servings != recipe.yield
+                recipe.yieldServings = newValue
+                if !keepScaling { recipe.servings = newValue }
+            }
+        )
+    }
+
+    private func nutrition(for ingredient: Ingredient, factor: Double) -> IngredientNutrition {
         NutritionCalculator.evaluate(
-            quantity: ingredient.quantity,
+            quantity: Scaling.scaled(ingredient.quantity, unit: ingredient.unit, factor: factor),
             unit: ingredient.unit,
             food: ingredient.fdcID.flatMap { foods[$0] }
         )
@@ -365,10 +409,11 @@ struct MacroCard: View {
 struct IngredientRow: View {
     let ingredient: Ingredient
     let nutrition: IngredientNutrition
+    var factor: Double = 1
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Text(RecipeMath.amountText(quantity: ingredient.quantity, unit: ingredient.unit))
+            Text(RecipeMath.amountText(quantity: Scaling.scaled(ingredient.quantity, unit: ingredient.unit, factor: factor), unit: ingredient.unit))
                 .font(.body.monospacedDigit())
                 .frame(minWidth: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {
