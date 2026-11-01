@@ -158,7 +158,7 @@ def load_dataset(zf, label):
         dt = row.get("data_type") or ""
         type_counts[dt] = type_counts.get(dt, 0) + 1
     print(f"{label}: zip members {[n for n in zf.namelist() if n.endswith('.csv')][:40]}")
-    print(f"{label}: food.csv data_type counts {type_counts}")
+    notice(f"{label}: food.csv data_type counts {type_counts}")
     for row in food_rows:
         if normalize_type(row.get("data_type")) not in KEEP_TYPES:
             continue
@@ -188,6 +188,10 @@ def load_dataset(zf, label):
             continue
         nutrients.setdefault(fid, {}).setdefault(nid, amount)
 
+    if foods and not nutrients:
+        sample = read_csv(zf, "food_nutrient.csv")[:3]
+        warning(f"{label}: no wanted nutrients found; sample rows {sample}")
+
     units = {row["id"]: (row.get("name") or "").strip() for row in read_csv(zf, "measure_unit.csv")}
     portions = []
     for row in read_csv(zf, "food_portion.csv"):
@@ -216,7 +220,7 @@ def load_dataset(zf, label):
             continue
         portions.append((fid, amount, unit_text, grams))
 
-    print(f"{label}: {len(foods)} foods, {len(nutrients)} with nutrients, {len(portions)} portions")
+    notice(f"{label}: {len(foods)} foods, {len(nutrients)} with nutrients, {len(portions)} portions")
     return foods, nutrients, portions
 
 
