@@ -18,12 +18,17 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
     }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (status, body) = next(request)
+        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        return (Data(body.utf8), response)
+    }
+
+    /// Synchronous so the lock is never held across an await.
+    private func next(_ request: URLRequest) -> (Int, String) {
         lock.lock()
         defer { lock.unlock() }
         recorded.append(request)
-        let (status, body) = responses.isEmpty ? (500, "{}") : responses.removeFirst()
-        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
-        return (Data(body.utf8), response)
+        return responses.isEmpty ? (500, "{}") : responses.removeFirst()
     }
 }
 
@@ -56,7 +61,8 @@ private func openAIBody(_ content: String, finish: String = "stop") -> String {
 }
 
 private func body(of request: URLRequest) throws -> [String: Any] {
-    try #require(JSONSerialization.jsonObject(with: try #require(request.httpBody)) as? [String: Any])
+    let data = try #require(request.httpBody)
+    return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
 }
 
 @Suite("Cloud AI — Anthropic")
