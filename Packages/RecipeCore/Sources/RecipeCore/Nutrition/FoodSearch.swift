@@ -62,7 +62,7 @@ public enum FoodSearch {
         "prawns": "crustaceans shrimp",
         "shrimp": "crustaceans shrimp",
         "chicken breast": "chicken breast meat only raw",
-        "chicken thigh": "chicken thigh meat only raw",
+        "chicken thigh": "chicken thigh raw",
         "salmon fillet": "fish salmon atlantic raw",
         "salmon": "fish salmon atlantic",
         "tuna": "fish tuna",
@@ -114,7 +114,7 @@ public enum FoodSearch {
         "reduced fat mayonnaise": "salad dressing mayonnaise light",
         "dark soy sauce": "soy sauce shoyu",
         "light soy sauce": "soy sauce shoyu",
-        "chicken thighs": "chicken thigh boneless skinless raw",
+        "chicken thighs": "chicken thigh raw",
         "skyr": "yogurt greek plain nonfat",
         "0 greek yogurt": "yogurt greek plain nonfat",
         "fat free greek yogurt": "yogurt greek plain nonfat",
@@ -195,7 +195,8 @@ public enum FoodSearch {
         "to", "for", "with", "plus", "extra", "some", "about", "handful", "pinch", "splash", "knob",
         "tbsp", "tsp", "g", "ml", "cup", "cups", "oz", "lb", "pieces", "piece", "crushed", "ripe", "softened",
         "weight", "if", "needed", "finish", "serve", "serving", "taste", "packet", "instructions", "according",
-        "melted", "room", "temperature", "cold", "warm", "hot", "boneless", "skinless", "skin", "on", "off"
+        "melted", "room", "temperature", "cold", "warm", "hot", "skin", "on", "off",
+        "thicken", "drizzle", "garnish", "dusting", "frying", "greasing", "brushing", "topping"
     ]
 
     /// Words that mean the ingredient is already cooked or processed (keeps cooked entries in results).

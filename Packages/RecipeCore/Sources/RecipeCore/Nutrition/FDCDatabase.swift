@@ -43,11 +43,21 @@ public final class FDCDatabase: @unchecked Sendable {
         guard !trimmedNote.isEmpty else { return search(ingredientName: ingredientName, limit: limit) }
         var seen = Set<String>()
         // Note first: descriptors usually precede the food ("low-fat" + "mayonnaise" → "low fat mayonnaise").
-        let combined = search(ingredientName: trimmedNote + " " + ingredientName, limit: limit)
+        // The note only counts when some food matches all of its words; purpose notes like
+        // "to thicken the sauce" would otherwise pull in unrelated sauces.
+        let combinedQuery = trimmedNote + " " + ingredientName
+        let combined = matchesAllTerms(combinedQuery) ? search(ingredientName: combinedQuery, limit: limit) : []
         let plain = search(ingredientName: ingredientName, limit: limit)
         // Keep the best few of each so a note that over-narrows can't hide the plain matches.
         let merged = Array(combined.prefix(6)) + plain + combined.dropFirst(6)
         return Array(merged.filter { seen.insert($0.description.lowercased()).inserted }.prefix(limit))
+    }
+
+    /// True when at least one food contains every search term of the text.
+    public func matchesAllTerms(_ text: String) -> Bool {
+        let terms = FoodSearch.terms(for: text)
+        guard !terms.isEmpty else { return false }
+        return !searchFTS(FoodSearch.ftsQuery(terms: Array(terms.prefix(6)), all: true), limit: 1).isEmpty
     }
 
     /// Up to `limit` candidate foods for an ingredient name, best first.
