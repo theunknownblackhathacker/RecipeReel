@@ -173,7 +173,12 @@ private struct ItemDetailContent: View {
     }
 
     private var stages: [PipelineStage] {
-        item.kind == .video ? PipelineStage.allCases : PipelineStage.allCases.filter { $0 != .transcribing && $0 != .readingText }
+        var stages = item.kind == .video ? PipelineStage.allCases : PipelineStage.allCases.filter { $0 != .transcribing && $0 != .readingText }
+        // "Looking at the video" only happens with the user's own API, for videos without a written method.
+        if item.kind != .video || services.ai.engine != .cloud || runner.stage != .watchingVideo && !runner.completedStages.contains(.watchingVideo) {
+            stages.removeAll { $0 == .watchingVideo }
+        }
+        return stages
     }
 
     private func makeRecipe() async {

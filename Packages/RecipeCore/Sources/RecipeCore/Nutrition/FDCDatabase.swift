@@ -58,7 +58,11 @@ public final class FDCDatabase: @unchecked Sendable {
             let anyTerm = FoodSearch.ftsQuery(terms: FoodSearch.coreTerms(terms), all: false)
             hits += searchFTS(anyTerm, limit: 60).filter { !fullMatches.contains($0.fdcID) }
         }
-        return Array(FoodSearch.rerank(hits, ingredientName: ingredientName, fullMatchIDs: fullMatches).prefix(limit))
+        // The two USDA datasets share some names ("Garlic, raw"): show each description once.
+        var seenNames = Set<String>()
+        let unique = FoodSearch.rerank(hits, ingredientName: ingredientName, fullMatchIDs: fullMatches)
+            .filter { seenNames.insert($0.description.lowercased()).inserted }
+        return Array(unique.prefix(limit))
     }
 
     /// Free-text search for the manual food picker.

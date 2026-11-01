@@ -113,7 +113,10 @@ final class AppServices {
                 matcher: cloud,
                 database: database,
                 aiStatus: status,
-                maxChunkCharacters: 60_000        // cloud models have large context windows
+                maxChunkCharacters: 60_000,       // cloud models have large context windows
+                visual: cloud,                    // look at key frames when no text describes the method
+                keyFrames: VideoKeyFrameProvider(),
+                matchConcurrency: 5               // food picks in parallel
             )
         }
     }

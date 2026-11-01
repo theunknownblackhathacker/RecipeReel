@@ -4,7 +4,7 @@ import Foundation
 /// Same prompts and same Swift checks as Apple Intelligence: steps must still be grounded in the
 /// video's text, and macros still come only from the USDA database. Only text is sent — caption,
 /// transcript and on-screen text; the video itself never leaves the phone.
-public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting {
+public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, VisualStepExtracting {
     let backend: any JSONChatBackend
     let onUsage: @Sendable (TokenUsage) -> Void
 
@@ -77,6 +77,26 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting {
         return FoodPick(index: FoundationModelsExtractor.parseChoice(choice, count: candidates.count), rawOutput: choice)
     }
 
+    public func extractStepsFromFrames(_ frames: [KeyFrame], sourceText: String, ingredientNames: [String]) async throws -> RawVisualMethod {
+        var content: [ChatContent] = [.text(Prompts.visualStepPrompt(sourceText: sourceText, ingredientNames: ingredientNames))]
+        for frame in frames {
+            content.append(.text("Frame at \(String(format: "%.1f", frame.time)) s:"))
+            content.append(.jpeg(frame.jpeg))
+        }
+        let result = try await backend.completeJSON(system: Prompts.visualStepInstructions, content: content,
+                                                    schemaName: "visual_steps", schema: CloudSchemas.visual, maxTokens: 3_000)
+        onUsage(result.usage)
+        let decoded = try decode(DecodedVisual.self, result.json)
+        return RawVisualMethod(
+            hasInstructions: decoded.hasInstructions,
+            steps: decoded.steps.map {
+                RawVisualStep(text: $0.text, ingredientsUsed: $0.ingredientsUsed, frameTimes: $0.frameTimes,
+                              minutes: $0.minutes, confidence: $0.confidence)
+            },
+            rawOutput: result.json
+        )
+    }
+
     /// Small request to check the key, model and address (Settings → Test connection).
     public func testConnection() async throws {
         let json = try await call("Reply with the word ok.", "ping", name: "ping",
@@ -145,6 +165,18 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting {
         let steps: [Item]
     }
 
+    struct DecodedVisual: Decodable {
+        struct Item: Decodable {
+            let text: String
+            let ingredientsUsed: [String]
+            let frameTimes: [Double]
+            let minutes: Int
+            let confidence: String
+        }
+        let hasInstructions: Bool
+        let steps: [Item]
+    }
+
     struct DecodedChoice: Decodable {
         let choice: String
     }
@@ -196,6 +228,19 @@ enum CloudSchemas {
                 "minutes": ["type": "integer", "description": "Duration in minutes, 0 if none"]
             ], order: ["text", "ingredientsUsed", "minutes"])]
         ], order: ["steps"])
+    }
+
+    static var visual: [String: Any] {
+        object([
+            "hasInstructions": ["type": "boolean", "description": "False if the frames show no preparation or cooking"],
+            "steps": ["type": "array", "items": object([
+                "text": ["type": "string", "description": "Short imperative instruction"],
+                "ingredientsUsed": ["type": "array", "items": ["type": "string"]],
+                "frameTimes": ["type": "array", "items": ["type": "number"], "description": "Times in seconds of the frames showing this step"],
+                "minutes": ["type": "integer", "description": "Duration in minutes only if the text states one, else 0"],
+                "confidence": ["type": "string", "enum": confidence]
+            ], order: ["text", "ingredientsUsed", "frameTimes", "minutes", "confidence"])]
+        ], order: ["hasInstructions", "steps"])
     }
 
     static func choice(_ choices: [String]) -> [String: Any] {

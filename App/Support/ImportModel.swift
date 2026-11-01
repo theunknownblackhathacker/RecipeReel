@@ -159,6 +159,10 @@ final class ImportModel {
     // MARK: - Analysis reports (saved next to the item as analysis.json)
 
     func saveReport(_ report: AnalysisReport, for item: InboxItem) {
+        guard FileManager.default.fileExists(atPath: localStore.directoryURL(for: item.id).path(percentEncoded: false)) else {
+            log.log("library", "Analysis not saved: the import was deleted while it ran")
+            return
+        }
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

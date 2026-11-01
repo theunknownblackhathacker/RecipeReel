@@ -20,15 +20,42 @@ public enum OCRDeduper {
                 guard line.confidence >= minimumConfidence, isUseful(text) else { continue }
                 let normalized = TextMatching.normalize(text)
                 guard !normalized.isEmpty else { continue }
-                let duplicate = keptNormalized.contains {
-                    $0 == normalized || TextMatching.similarity($0, normalized) >= similarityThreshold
-                }
-                if duplicate { continue }
+                if isDuplicate(normalized, of: keptNormalized, threshold: similarityThreshold) { continue }
                 kept.append(OCRLine(time: frame.time, text: text, confidence: line.confidence))
                 keptNormalized.append(normalized)
             }
         }
         return kept
+    }
+
+    /// Same text, a misread of text already kept, or a piece of it.
+    /// Lines with numbers (amounts, times) must match closely; title-like lines without numbers are
+    /// treated as misreads of a kept line when roughly similar ("Parato Bread" → "Potato Bread").
+    static func isDuplicate(_ line: String, of kept: [String], threshold: Double) -> Bool {
+        let hasDigits = line.contains { $0.isNumber }
+        let words = Set(line.split(separator: " ").map(String.init))
+        for other in kept {
+            if other == line { return true }
+            let similarity = TextMatching.similarity(other, line)
+            if similarity >= threshold { return true }
+            if !hasDigits {
+                let otherWords = Set(other.split(separator: " ").map(String.init))
+                // Fragment of a kept line ("Potato", "Bread" after "Potato Bread").
+                if !words.isEmpty, words.isSubset(of: otherWords) { return true }
+                // Misread: similar overall, and every longer word resembles a word of the kept line
+                // ("cho sy garuc" → "cheesy garlic"), but "mix the sugar" ≠ "mix the flour".
+                if similarity >= 0.66, wordsResemble(words, otherWords) { return true }
+            }
+        }
+        return false
+    }
+
+    static func wordsResemble(_ words: Set<String>, _ others: Set<String>) -> Bool {
+        let long = words.filter { $0.count >= 4 }
+        guard !long.isEmpty else { return true }
+        return long.allSatisfy { word in
+            others.contains { TextMatching.similarity($0, word) >= 0.5 }
+        }
     }
 
     /// Skips text that never carries recipe information: handles, hashtags-only lines,

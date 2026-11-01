@@ -49,14 +49,50 @@ public struct SpeechTranscriptionService: TranscriptionService {
     public func transcribe(videoURL: URL, status: @escaping @Sendable (String) -> Void) async throws -> [TranscriptSegment] {
         let asset = AVURLAsset(url: videoURL)
         let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-        guard !audioTracks.isEmpty else { return [] }
+        guard !audioTracks.isEmpty else {
+            status("no audio track")
+            return []
+        }
 
         try await Self.ensureAuthorization()
+        status("permission ok")
+
+        status("Extracting audio…")
+        let audioURL = try await Self.exportAudio(from: asset)
+        defer { try? FileManager.default.removeItem(at: audioURL) }
+        let audioFile = try AVAudioFile(forReading: audioURL)
+        let seconds = Double(audioFile.length) / audioFile.processingFormat.sampleRate
+        status("audio \(String(format: "%.1f", seconds))s")
+
+        // 1. SpeechAnalyzer (iOS 26+).
+        var segments: [TranscriptSegment] = []
+        do {
+            segments = try await analyze(audioFile: audioFile, status: status)
+            status("SpeechAnalyzer: \(segments.count) segments")
+        } catch {
+            status("SpeechAnalyzer failed: \(error.localizedDescription)")
+        }
+
+        // 2. Fallback: the older on-device recognizer, when nothing was heard in more than a few seconds of audio.
+        if segments.isEmpty, seconds > 3 {
+            do {
+                segments = try await Self.recognizeOnDevice(audioURL: audioURL, localeIdentifier: localeIdentifier)
+                status("SFSpeechRecognizer: \(segments.count) segments")
+            } catch {
+                status("SFSpeechRecognizer: \(error.localizedDescription)")
+            }
+        }
+        if let first = segments.first {
+            status("heard: \(first.text.prefix(60))")
+        }
+        return segments
+    }
+
+    private func analyze(audioFile: AVAudioFile, status: @escaping @Sendable (String) -> Void) async throws -> [TranscriptSegment] {
         guard SpeechTranscriber.isAvailable else { throw MediaError.speechUnavailable }
         guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeIdentifier)) else {
             throw MediaError.localeUnsupported(localeIdentifier)
         }
-
         let transcriber = SpeechTranscriber(
             locale: locale,
             transcriptionOptions: [],
@@ -66,18 +102,13 @@ public struct SpeechTranscriptionService: TranscriptionService {
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             status("Downloading speech model…")
             try await request.downloadAndInstall()
+            status("speech model installed")
+        } else {
+            status("speech model ready (\(locale.identifier))")
         }
-
-        status("Extracting audio…")
-        let audioURL = try await Self.exportAudio(from: asset)
-        defer { try? FileManager.default.removeItem(at: audioURL) }
-        let audioFile = try AVAudioFile(forReading: audioURL)
 
         status("Transcribing…")
         let analyzer = SpeechAnalyzer(modules: [transcriber])
-        // TODO: bias recognition with `contextualWords` via AnalysisContext once its API is verified
-        // (apple-api-notes.md: analyzer.setContext(_:) with contextualStrings).
-
         // Start reading results before feeding audio, or the stream can stall.
         let collector = Task { () throws -> [TranscriptSegment] in
             var segments: [TranscriptSegment] = []
@@ -93,7 +124,6 @@ public struct SpeechTranscriptionService: TranscriptionService {
             }
             return segments
         }
-
         do {
             if let lastSample = try await analyzer.analyzeSequence(from: audioFile) {
                 try await analyzer.finalizeAndFinish(through: lastSample)
@@ -106,6 +136,50 @@ public struct SpeechTranscriptionService: TranscriptionService {
             throw error
         }
         return try await collector.value.sorted { $0.start < $1.start }
+    }
+
+    /// On-device SFSpeechRecognizer on an audio file. Words are grouped into segments at pauses > 0.8 s.
+    static func recognizeOnDevice(audioURL: URL, localeIdentifier: String) async throws -> [TranscriptSegment] {
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier)) else {
+            throw MediaError.localeUnsupported(localeIdentifier)
+        }
+        guard recognizer.supportsOnDeviceRecognition else { throw MediaError.speechUnavailable }
+        let request = SFSpeechURLRecognitionRequest(url: audioURL)
+        request.requiresOnDeviceRecognition = true
+        request.shouldReportPartialResults = false
+        request.addsPunctuation = true
+        let words: [(String, Double, Double)] = try await withCheckedThrowingContinuation { continuation in
+            let once = ResumeOnce()
+            _ = recognizer.recognitionTask(with: request) { result, error in
+                if let result, result.isFinal {
+                    let items = result.bestTranscription.segments.map { ($0.substring, $0.timestamp, $0.duration) }
+                    if once.claim() { continuation.resume(returning: items) }
+                } else if let error {
+                    if once.claim() { continuation.resume(throwing: error) }
+                }
+            }
+        }
+        return group(words: words)
+    }
+
+    static func group(words: [(String, Double, Double)]) -> [TranscriptSegment] {
+        var segments: [TranscriptSegment] = []
+        var current: [String] = []
+        var start = 0.0
+        var end = 0.0
+        for (word, timestamp, duration) in words {
+            if !current.isEmpty, timestamp - end > 0.8 {
+                segments.append(TranscriptSegment(start: start, end: end, text: current.joined(separator: " ")))
+                current = []
+            }
+            if current.isEmpty { start = timestamp }
+            current.append(word)
+            end = timestamp + duration
+        }
+        if !current.isEmpty {
+            segments.append(TranscriptSegment(start: start, end: end, text: current.joined(separator: " ")))
+        }
+        return segments
     }
 
     static func ensureAuthorization() async throws {
@@ -133,6 +207,20 @@ public struct SpeechTranscriptionService: TranscriptionService {
             throw MediaError.audioExportFailed(error.localizedDescription)
         }
         return output
+    }
+}
+
+/// Makes sure a continuation is resumed only once.
+final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if done { return false }
+        done = true
+        return true
     }
 }
 

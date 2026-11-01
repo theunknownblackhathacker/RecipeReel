@@ -129,13 +129,17 @@ public struct StepDraft: Codable, Sendable, Equatable {
     public var ingredientNames: [String]
     public var confidence: Confidence
     public var sourceQuote: String
+    /// True when the step was written from the video's pictures (no text described it).
+    public var fromPictures: Bool?
 
-    public init(text: String, minutes: Int?, ingredientNames: [String], confidence: Confidence, sourceQuote: String) {
+    public init(text: String, minutes: Int?, ingredientNames: [String], confidence: Confidence, sourceQuote: String,
+                fromPictures: Bool? = nil) {
         self.text = text
         self.minutes = minutes
         self.ingredientNames = ingredientNames
         self.confidence = confidence
         self.sourceQuote = sourceQuote
+        self.fromPictures = fromPictures
     }
 }
 

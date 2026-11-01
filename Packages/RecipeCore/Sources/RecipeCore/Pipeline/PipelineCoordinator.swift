@@ -1,7 +1,7 @@
 import Foundation
 
 public enum PipelineStage: String, Codable, Sendable, CaseIterable {
-    case transcribing, readingText, findingIngredients, matchingFoods, writingSteps, calculating
+    case transcribing, readingText, findingIngredients, matchingFoods, writingSteps, watchingVideo, calculating
 
     public var title: String {
         switch self {
@@ -10,6 +10,7 @@ public enum PipelineStage: String, Codable, Sendable, CaseIterable {
         case .findingIngredients: "Finding ingredients"
         case .matchingFoods: "Matching foods"
         case .writingSteps: "Writing steps"
+        case .watchingVideo: "Looking at the video"
         case .calculating: "Calculating"
         }
     }
@@ -44,6 +45,11 @@ public struct AnalysisReport: Codable, Sendable {
     public var foodMatchLog: [String]
     public var errors: [String]
     public var outcome: ExtractionOutcome?
+    /// Speech-recognition details (audio found, permission, model, recognizer used).
+    public var transcriptionNotes: [String]?
+    /// Times of the key frames sent to the cloud model, and its raw answer.
+    public var keyFrameTimes: [Double]?
+    public var rawVisualOutput: String?
 
     public init(itemID: UUID?, aiStatus: String, timeline: SourceTimeline) {
         self.createdAt = Date()
@@ -68,12 +74,19 @@ public struct AnalysisReport: Codable, Sendable {
             lines.append("Errors:")
             lines += errors.map { "  - \($0)" }
         }
+        if let notes = transcriptionNotes, !notes.isEmpty {
+            lines.append("Speech: " + notes.joined(separator: " · "))
+        }
         lines.append("-- Source timeline --")
         lines.append(timeline.text.isEmpty ? "(empty)" : timeline.text)
         lines.append("-- Raw ingredient output --")
         lines += rawIngredientOutputs
         lines.append("-- Raw step output --")
         lines += rawStepOutputs
+        if let times = keyFrameTimes {
+            lines.append("-- Video pictures (\(times.count) key frames at \(times.map { String(format: "%.1f", $0) }.joined(separator: ", ")) s) --")
+            lines.append(rawVisualOutput ?? "(no answer)")
+        }
         lines.append("-- Food matching --")
         lines += foodMatchLog
         if let outcome {
@@ -83,7 +96,7 @@ public struct AnalysisReport: Codable, Sendable {
                 lines.append("  • \(i.quantity.map { String(format: "%g", $0) } ?? "–") \(i.unit.rawValue) \(i.name) [\(i.confidence.rawValue)] → \(i.foodDescription ?? "unmatched") (\(i.matchStatus.rawValue))\(i.note.isEmpty ? "" : " note: \(i.note)")")
             }
             for (n, s) in outcome.steps.enumerated() {
-                lines.append("  \(n + 1). \(s.text)\(s.minutes.map { " [\($0) min]" } ?? "") [\(s.confidence.rawValue)] uses: \(s.ingredientNames.joined(separator: ", "))")
+                lines.append("  \(n + 1). \(s.text)\(s.minutes.map { " [\($0) min]" } ?? "") [\(s.confidence.rawValue)]\(s.fromPictures == true ? " [\(s.sourceQuote)]" : "") uses: \(s.ingredientNames.joined(separator: ", "))")
             }
             if !outcome.droppedSteps.isEmpty {
                 lines.append("Dropped/flagged by checks:")
@@ -105,6 +118,10 @@ public actor PipelineCoordinator {
     private let database: FDCDatabase?
     private let aiStatus: String
     private let maxChunkCharacters: Int
+    private let visual: (any VisualStepExtracting)?
+    private let keyFrames: (any KeyFrameProviding)?
+    private let matchConcurrency: Int
+    private let maxKeyFrames: Int
 
     public init(
         transcriber: any TranscriptionService,
@@ -113,7 +130,11 @@ public actor PipelineCoordinator {
         matcher: (any FoodMatching)?,
         database: FDCDatabase?,
         aiStatus: String,
-        maxChunkCharacters: Int = 4_000
+        maxChunkCharacters: Int = 4_000,
+        visual: (any VisualStepExtracting)? = nil,
+        keyFrames: (any KeyFrameProviding)? = nil,
+        matchConcurrency: Int = 1,
+        maxKeyFrames: Int = 12
     ) {
         self.transcriber = transcriber
         self.ocr = ocr
@@ -122,6 +143,10 @@ public actor PipelineCoordinator {
         self.database = database
         self.aiStatus = aiStatus
         self.maxChunkCharacters = maxChunkCharacters
+        self.visual = visual
+        self.keyFrames = keyFrames
+        self.matchConcurrency = max(1, matchConcurrency)
+        self.maxKeyFrames = maxKeyFrames
     }
 
     public func run(
@@ -136,8 +161,11 @@ public actor PipelineCoordinator {
         if let videoURL {
             update(PipelineUpdate(stage: .transcribing))
             let start = Date()
+            let notes = NoteCollector()
+            defer { report.transcriptionNotes = notes.all }
             do {
                 report.timeline.spoken = try await transcriber.transcribe(videoURL: videoURL) { status in
+                    notes.add(status)
                     update(PipelineUpdate(stage: .transcribing, detail: status))
                 }
                 report.timings.append(StageTiming(stage: "transcribe", seconds: Date().timeIntervalSince(start),
@@ -161,7 +189,47 @@ public actor PipelineCoordinator {
             }
         }
 
-        return await extract(into: report, rememberedMatches: rememberedMatches, update: update)
+        var result = await extract(into: report, rememberedMatches: rememberedMatches, update: update)
+        if let videoURL {
+            result = await addStepsFromPictures(to: result, videoURL: videoURL, update: update)
+        }
+        return result
+    }
+
+    /// When no text describes the method, a vision-capable cloud model writes steps from key frames.
+    private func addStepsFromPictures(
+        to startingReport: AnalysisReport,
+        videoURL: URL,
+        update: @escaping @Sendable (PipelineUpdate) -> Void
+    ) async -> AnalysisReport {
+        var report = startingReport
+        guard let visual, let keyFrames, var outcome = report.outcome, outcome.steps.isEmpty else { return report }
+        update(PipelineUpdate(stage: .watchingVideo))
+        let start = Date()
+        do {
+            let frames = try await keyFrames.keyFrames(videoURL: videoURL, maxFrames: maxKeyFrames)
+            report.keyFrameTimes = frames.map(\.time)
+            guard !frames.isEmpty else {
+                report.timings.append(StageTiming(stage: "pictures", seconds: Date().timeIntervalSince(start), note: "no frames"))
+                return report
+            }
+            update(PipelineUpdate(stage: .watchingVideo, detail: "\(frames.count) frames"))
+            let names = outcome.ingredients.map(\.name)
+            let method = try await visual.extractStepsFromFrames(frames, sourceText: report.timeline.text, ingredientNames: names)
+            report.rawVisualOutput = method.rawOutput
+            let checked = ExtractionPostProcessor.visualSteps(method, frameTimes: frames.map(\.time),
+                                                              sourceText: report.timeline.plainText, ingredientNames: names)
+            outcome.steps = checked.steps
+            outcome.hasInstructions = !checked.steps.isEmpty
+            outcome.droppedSteps += checked.dropped
+            report.outcome = outcome
+            report.timings.append(StageTiming(stage: "pictures", seconds: Date().timeIntervalSince(start),
+                                              note: "\(frames.count) frames, \(checked.steps.count) steps"))
+        } catch {
+            report.errors.append("Video pictures: \(error.localizedDescription)")
+            report.timings.append(StageTiming(stage: "pictures", seconds: Date().timeIntervalSince(start), note: "failed"))
+        }
+        return report
     }
 
     /// Extraction only (used by `run` and by the in-app self-test with prepared text).
@@ -206,37 +274,48 @@ public actor PipelineCoordinator {
         update(PipelineUpdate(stage: .matchingFoods))
         let mStart = Date()
         if let database {
+            // Remembered choices and database search first (fast, local).
+            var jobs: [MatchJob] = []
+            var logLines = [String](repeating: "", count: ingredients.count)
             for index in ingredients.indices {
                 let ingredient = ingredients[index]
-                update(PipelineUpdate(stage: .matchingFoods, detail: ingredient.name))
                 let key = TextMatching.normalize(ingredient.name)
                 if let remembered = rememberedMatches[key], let food = database.food(id: remembered) {
                     ingredients[index].fdcID = food.fdcID
                     ingredients[index].foodDescription = food.description
                     ingredients[index].matchStatus = .remembered
-                    report.foodMatchLog.append("\(ingredient.name) → \(food.description) (remembered)")
+                    logLines[index] = "\(ingredient.name) → \(food.description) (remembered)"
                     continue
                 }
                 let candidates = database.search(ingredientName: ingredient.name, limit: 10)
                 guard !candidates.isEmpty else {
-                    report.foodMatchLog.append("\(ingredient.name) → no candidates (terms: \(FoodSearch.terms(for: ingredient.name).joined(separator: " ")))")
+                    logLines[index] = "\(ingredient.name) → no candidates (terms: \(FoodSearch.terms(for: ingredient.name).joined(separator: " ")))"
                     continue
                 }
-                guard let matcher else { continue }
-                do {
-                    let detail = [ingredient.note, ingredient.quantity.map { "\(String(format: "%g", $0)) \(ingredient.unit.label)" } ?? ""]
-                        .filter { !$0.isEmpty }.joined(separator: ", ")
-                    let pick = try await matcher.pickFood(ingredient: ingredient.name, detail: detail, candidates: candidates)
-                    if let chosen = pick.index {
-                        ingredients[index].fdcID = candidates[chosen].fdcID
-                        ingredients[index].foodDescription = candidates[chosen].description
-                        ingredients[index].matchStatus = .matched
+                let detail = [ingredient.note, ingredient.quantity.map { "\(String(format: "%g", $0)) \(ingredient.unit.label)" } ?? ""]
+                    .filter { !$0.isEmpty }.joined(separator: ", ")
+                jobs.append(MatchJob(index: index, name: ingredient.name, detail: detail, candidates: candidates))
+            }
+            // Model picks — several at once for cloud APIs.
+            if let matcher {
+                let results = await Self.runMatches(jobs, matcher: matcher, concurrency: matchConcurrency) { name in
+                    update(PipelineUpdate(stage: .matchingFoods, detail: name))
+                }
+                for (job, outcome) in zip(jobs, results) {
+                    switch outcome {
+                    case .success(let pick):
+                        if let chosen = pick.index {
+                            ingredients[job.index].fdcID = job.candidates[chosen].fdcID
+                            ingredients[job.index].foodDescription = job.candidates[chosen].description
+                            ingredients[job.index].matchStatus = .matched
+                        }
+                        logLines[job.index] = "\(job.name) → \(pick.rawOutput) | from: \(job.candidates.prefix(5).map(\.description).joined(separator: " / "))"
+                    case .failure(let error):
+                        logLines[job.index] = "\(job.name) → error: \(error.localizedDescription)"
                     }
-                    report.foodMatchLog.append("\(ingredient.name) → \(pick.rawOutput) | from: \(candidates.prefix(5).map(\.description).joined(separator: " / "))")
-                } catch {
-                    report.foodMatchLog.append("\(ingredient.name) → error: \(error.localizedDescription)")
                 }
             }
+            report.foodMatchLog += logLines.filter { !$0.isEmpty }
         } else {
             report.errors.append("Nutrition database missing: foods not matched.")
         }
@@ -273,6 +352,54 @@ public actor PipelineCoordinator {
         return report
     }
 
+    struct MatchJob: Sendable {
+        let index: Int
+        let name: String
+        let detail: String
+        let candidates: [FoodCandidate]
+    }
+
+    /// Runs food picks with at most `concurrency` in flight; results come back in job order.
+    static func runMatches(
+        _ jobs: [MatchJob],
+        matcher: any FoodMatching,
+        concurrency: Int,
+        progress: @escaping @Sendable (String) -> Void
+    ) async -> [Result<FoodPick, any Error>] {
+        var results = [Result<FoodPick, any Error>?](repeating: nil, count: jobs.count)
+        await withTaskGroup(of: (Int, Result<FoodPick, any Error>).self) { group in
+            var positions = jobs.indices.makeIterator()
+            for _ in 0..<min(concurrency, jobs.count) {
+                if let position = positions.next() {
+                    let job = jobs[position]
+                    group.addTask { await Self.pick(job, position: position, matcher: matcher, progress: progress) }
+                }
+            }
+            for await (position, result) in group {
+                results[position] = result
+                if let nextPosition = positions.next() {
+                    let job = jobs[nextPosition]
+                    group.addTask { await Self.pick(job, position: nextPosition, matcher: matcher, progress: progress) }
+                }
+            }
+        }
+        return results.map { $0 ?? .failure(CancellationError()) }
+    }
+
+    private static func pick(
+        _ job: MatchJob,
+        position: Int,
+        matcher: any FoodMatching,
+        progress: @Sendable (String) -> Void
+    ) async -> (Int, Result<FoodPick, any Error>) {
+        progress(job.name)
+        do {
+            return (position, .success(try await matcher.pickFood(ingredient: job.name, detail: job.detail, candidates: job.candidates)))
+        } catch {
+            return (position, .failure(error))
+        }
+    }
+
     /// Runs `work` on the chunk; if it fails (e.g. context window exceeded) and the chunk is long,
     /// splits it in half and tries each half once.
     private func withSplitRetry<T: Sendable>(
@@ -290,5 +417,23 @@ public actor PipelineCoordinator {
             }
             return results
         }
+    }
+}
+
+/// Thread-safe list of status messages from the transcriber.
+final class NoteCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var notes: [String] = []
+
+    func add(_ note: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        if notes.last != note { notes.append(note) }
+    }
+
+    var all: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return notes
     }
 }

@@ -182,6 +182,70 @@ public enum ExtractionPostProcessor {
         return steps
     }
 
+    /// Steps written from key frames: each must cite at least one real frame; durations and numbers are only
+    /// kept when the video's text states them; confidence is at most medium.
+    public static func visualSteps(
+        _ method: RawVisualMethod,
+        frameTimes: [Double],
+        sourceText: String,
+        ingredientNames: [String]
+    ) -> (steps: [StepDraft], dropped: [String]) {
+        guard method.hasInstructions || !method.steps.isEmpty else { return ([], []) }
+        let allowedNumbers = numbersIncludingWords(in: sourceText)
+        var steps: [StepDraft] = []
+        var dropped: [String] = []
+        for raw in method.steps {
+            let text = raw.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard text.count >= 3 else { continue }
+            let cited = raw.frameTimes.filter { time in frameTimes.contains { abs($0 - time) <= 0.6 } }
+            guard !cited.isEmpty else {
+                dropped.append("\(text) — cites no real frame (\(raw.frameTimes))")
+                continue
+            }
+            if steps.contains(where: { TextMatching.similarity(TextMatching.normalize($0.text), TextMatching.normalize(text)) >= 0.9 }) {
+                continue
+            }
+            var confidence = min(Confidence.parse(raw.confidence), .medium)
+            var minutes: Int? = raw.minutes > 0 ? raw.minutes : nil
+            if let stated = minutes, !statedDurations(in: sourceText).contains(stated) {
+                dropped.append("\(text) — removed \(stated) min (not stated in the video's text)")
+                minutes = nil
+            }
+            let unsupported = numbers(in: text).subtracting(allowedNumbers)
+            if !unsupported.isEmpty {
+                confidence = .low
+                dropped.append("\(text) — flagged: numbers \(unsupported.sorted()) not in the video's text")
+            }
+            let label = cited.map { SourceTimeline.clock($0) }.joined(separator: ", ")
+            steps.append(StepDraft(text: text, minutes: minutes,
+                                   ingredientNames: matchNames(raw.ingredientsUsed, to: ingredientNames),
+                                   confidence: confidence, sourceQuote: "Seen at \(label)", fromPictures: true))
+        }
+        return (steps, dropped)
+    }
+
+    /// Every duration written in the text, in minutes ("20–25 minutes" → 20 and 25, "1 hour" → 60).
+    static func statedDurations(in text: String) -> Set<Int> {
+        let pattern = #"(\d+(?:[.,]\d+)?)\s*(?:(?:-|–|to)\s*(\d+(?:[.,]\d+)?))?\s*(hours?|hrs?|minutes?|mins?)\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        let ns = text as NSString
+        var result = Set<Int>()
+        for match in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+            let isHours = ns.substring(with: match.range(at: 3)).lowercased().hasPrefix("h")
+            for group in [1, 2] where match.range(at: group).location != NSNotFound {
+                if let value = Double(ns.substring(with: match.range(at: group)).replacingOccurrences(of: ",", with: ".")) {
+                    result.insert(Int((isHours ? value * 60 : value).rounded()))
+                }
+            }
+        }
+        let words = " " + TextMatching.normalize(text) + " "
+        if words.contains(" a minute ") || words.contains(" one minute ") { result.insert(1) }
+        if words.contains(" an hour ") || words.contains(" one hour ") { result.insert(60) }
+        if words.contains(" half an hour ") { result.insert(30) }
+        for (word, value) in numberWords where words.contains(" \(word) minute") { result.insert(value) }
+        return result
+    }
+
     /// Steps imported from a web page: timers come from durations written in the step text.
     public static func webSteps(_ texts: [String], ingredientNames: [String]) -> [StepDraft] {
         texts.prefix(40).map { text in

@@ -94,8 +94,13 @@ struct RecipeView: View {
                     Label("No instructions in this video", systemImage: "text.badge.xmark")
                         .foregroundStyle(.secondary)
                     findStepsButtons
+                    if services.ai.engine == .onDevice, recipe.sourceItemID != nil {
+                        Text("Tip: with your own API (✨ AI settings), RecipeReel can also look at the video's pictures to write the steps when nobody says or writes them.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 } else {
-                    if origin == .aiSuggested || origin == .web {
+                    if origin == .aiSuggested || origin == .web || origin == .videoPictures {
                         StepsOriginBanner(steps: steps, origin: origin)
                     }
                     ForEach(steps) { step in
@@ -227,6 +232,7 @@ struct RecipeView: View {
         let origins = Set(steps.map(\.origin))
         if origins.contains(.aiSuggested) { return .aiSuggested }
         if origins.contains(.web) { return .web }
+        if origins.contains(.videoPictures) { return .videoPictures }
         return origins.first
     }
 
@@ -416,7 +422,13 @@ struct StepsOriginBanner: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if origin == .aiSuggested {
+            if origin == .videoPictures {
+                Label("From the video's pictures", systemImage: "eye")
+                    .font(.subheadline.bold())
+                Text("Nobody says or writes the method in this video, so these steps describe what it shows. Check amounts against the ingredient list.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if origin == .aiSuggested {
                 Label("Suggested by AI — not from the video", systemImage: "sparkles")
                     .font(.subheadline.bold())
                 Text("A guess from the ingredient list. Check times and temperatures before cooking.")
@@ -431,7 +443,7 @@ struct StepsOriginBanner: View {
                 }
             }
         }
-        .foregroundStyle(.orange)
+        .foregroundStyle(origin == .videoPictures ? Color.accentColor : Color.orange)
         .padding(.vertical, 2)
     }
 }

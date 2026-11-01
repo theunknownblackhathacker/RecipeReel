@@ -104,7 +104,8 @@ public final class Ingredient {
 
 /// Where a step came from.
 public enum StepOrigin: String, Codable, Sendable {
-    case video          // extracted from the video / caption
+    case video          // extracted from the video's text (caption, speech, on-screen text)
+    case videoPictures  // written from the video's pictures by a vision-capable cloud model
     case aiSuggested    // written by the on-device model on request (not from the video)
     case web            // imported from a recipe web page the user opened
     case manual         // typed by the user
@@ -190,7 +191,8 @@ public enum RecipeFactory {
         }
         recipe.steps = outcome.steps.enumerated().map { index, draft in
             Step(order: index, text: draft.text, minutes: draft.minutes, ingredientNames: draft.ingredientNames,
-                 confidence: draft.confidence, sourceQuote: draft.sourceQuote)
+                 confidence: draft.confidence, sourceQuote: draft.sourceQuote,
+                 origin: draft.fromPictures == true ? .videoPictures : .video)
         }
         return recipe
     }

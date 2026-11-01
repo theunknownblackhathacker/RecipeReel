@@ -134,10 +134,23 @@ public struct URLSessionTransport: HTTPTransport {
     }
 }
 
+/// One piece of the user message: text or a JPEG image.
+public enum ChatContent: Sendable {
+    case text(String)
+    case jpeg(Data)
+}
+
 /// One provider's "system + user message → JSON matching this schema" call.
 public protocol JSONChatBackend: Sendable {
-    func completeJSON(system: String, user: String, schemaName: String, schema: [String: Any],
+    func completeJSON(system: String, content: [ChatContent], schemaName: String, schema: [String: Any],
                       maxTokens: Int) async throws -> (json: String, usage: TokenUsage)
+}
+
+extension JSONChatBackend {
+    public func completeJSON(system: String, user: String, schemaName: String, schema: [String: Any],
+                             maxTokens: Int) async throws -> (json: String, usage: TokenUsage) {
+        try await completeJSON(system: system, content: [.text(user)], schemaName: schemaName, schema: schema, maxTokens: maxTokens)
+    }
 }
 
 // MARK: - Anthropic (Claude Messages API, JSON schema outputs via output_config.format)
@@ -156,7 +169,7 @@ public struct AnthropicBackend: JSONChatBackend {
         self.transport = transport
     }
 
-    public func completeJSON(system: String, user: String, schemaName: String, schema: [String: Any],
+    public func completeJSON(system: String, content: [ChatContent], schemaName: String, schema: [String: Any],
                              maxTokens: Int) async throws -> (json: String, usage: TokenUsage) {
         var request = URLRequest(url: Self.endpoint)
         request.httpMethod = "POST"
@@ -168,12 +181,23 @@ public struct AnthropicBackend: JSONChatBackend {
             "model": model,
             "max_tokens": maxTokens,
             "system": system,
-            "messages": [["role": "user", "content": user]],
+            "messages": [["role": "user", "content": Self.blocks(content)]],
             "output_config": ["format": ["type": "json_schema", "schema": schema]]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await transport.send(request)
         return try Self.parse(data: data, status: response.statusCode)
+    }
+
+    static func blocks(_ content: [ChatContent]) -> [[String: Any]] {
+        content.map { part -> [String: Any] in
+            switch part {
+            case .text(let text):
+                return ["type": "text", "text": text]
+            case .jpeg(let data):
+                return ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": data.base64EncodedString()]]
+            }
+        }
     }
 
     static func parse(data: Data, status: Int) throws -> (json: String, usage: TokenUsage) {
@@ -222,10 +246,10 @@ public struct OpenAICompatibleBackend: JSONChatBackend {
         return URL(string: base + "/chat/completions")
     }
 
-    public func completeJSON(system: String, user: String, schemaName: String, schema: [String: Any],
+    public func completeJSON(system: String, content: [ChatContent], schemaName: String, schema: [String: Any],
                              maxTokens: Int) async throws -> (json: String, usage: TokenUsage) {
         do {
-            return try await send(system: system, user: user, responseFormat: [
+            return try await send(system: system, content: content, responseFormat: [
                 "type": "json_schema",
                 "json_schema": ["name": schemaName, "strict": true, "schema": schema]
             ], maxTokens: maxTokens)
@@ -234,7 +258,7 @@ public struct OpenAICompatibleBackend: JSONChatBackend {
             // schema written into the instructions (still parsed and checked in Swift).
             let schemaText = String(data: try JSONSerialization.data(withJSONObject: schema, options: [.sortedKeys]), encoding: .utf8) ?? ""
             return try await send(system: system + "\n\nReply with only a JSON object matching this JSON schema:\n" + schemaText,
-                                  user: user, responseFormat: ["type": "json_object"], maxTokens: maxTokens)
+                                  content: content, responseFormat: ["type": "json_object"], maxTokens: maxTokens)
         }
     }
 
@@ -243,7 +267,20 @@ public struct OpenAICompatibleBackend: JSONChatBackend {
         return m.contains("response_format") || m.contains("json_schema") || m.contains("schema")
     }
 
-    private func send(system: String, user: String, responseFormat: [String: Any],
+    static func userContent(_ content: [ChatContent]) -> Any {
+        // Plain string when there are no images (widest compatibility), parts otherwise.
+        if content.count == 1, case .text(let text) = content[0] { return text }
+        return content.map { part -> [String: Any] in
+            switch part {
+            case .text(let text):
+                return ["type": "text", "text": text]
+            case .jpeg(let data):
+                return ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + data.base64EncodedString()]]
+            }
+        }
+    }
+
+    private func send(system: String, content: [ChatContent], responseFormat: [String: Any],
                       maxTokens: Int) async throws -> (json: String, usage: TokenUsage) {
         guard let endpoint else { throw CloudAPIError.badBaseURL(baseURL) }
         var request = URLRequest(url: endpoint)
@@ -256,7 +293,7 @@ public struct OpenAICompatibleBackend: JSONChatBackend {
             "max_completion_tokens": maxTokens,
             "messages": [
                 ["role": "system", "content": system],
-                ["role": "user", "content": user]
+                ["role": "user", "content": Self.userContent(content)]
             ],
             "response_format": responseFormat
         ]
