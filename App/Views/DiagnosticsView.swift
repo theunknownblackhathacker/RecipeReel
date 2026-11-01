@@ -21,7 +21,12 @@ struct DiagnosticsView: View {
                 row("Device", UIDevice.current.model)
             }
 
-            Section("Apple Intelligence & data") {
+            Section("AI & data") {
+                row("Extraction AI", services.engineLabel)
+                if services.ai.engine == .cloud {
+                    row("API calls this session", "\(services.ai.sessionCalls)")
+                    row("Tokens this session", "\(services.ai.sessionUsage.inputTokens) in / \(services.ai.sessionUsage.outputTokens) out")
+                }
                 row("Apple Intelligence", services.aiAvailability.shortLabel)
                 if !services.aiAvailability.isAvailable {
                     Text(services.aiAvailability.message)
@@ -204,7 +209,11 @@ struct DiagnosticsView: View {
         if let problem = model.shared.problem { lines.append("Problem: \(problem)") }
         lines.append("Waiting in shared inbox: \(model.pendingSharedCount())")
         lines.append("")
-        lines.append("## Apple Intelligence & data")
+        lines.append("## AI & data")
+        lines.append("Extraction AI: \(services.engineLabel)")
+        if services.ai.engine == .cloud {
+            lines.append("API calls this session: \(services.ai.sessionCalls), tokens \(services.ai.sessionUsage.inputTokens) in / \(services.ai.sessionUsage.outputTokens) out")
+        }
         lines.append("Apple Intelligence: \(services.aiAvailability.shortLabel)")
         lines.append("Nutrition DB: \(services.databaseProblem ?? services.databaseInfo.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))")
         lines.append("Remembered matches: \(services.rememberedMatches.count)")

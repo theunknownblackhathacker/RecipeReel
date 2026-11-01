@@ -137,7 +137,7 @@ struct RecipeView: View {
                     Button {
                         requestSteps(.suggest)
                     } label: {
-                        Label("Suggest steps (on-device AI)", systemImage: "sparkles")
+                        Label("Suggest steps (AI)", systemImage: "sparkles")
                     }
                     Button {
                         requestSteps(.web)
@@ -212,7 +212,7 @@ struct RecipeView: View {
             if suggesting {
                 HStack { ProgressView(); Text("Writing suggested steps…") }
             } else {
-                Label("Suggest steps (on-device AI)", systemImage: "sparkles")
+                Label("Suggest steps (AI)", systemImage: "sparkles")
             }
         }
         .disabled(suggesting || recipe.ingredients.isEmpty)
@@ -417,7 +417,7 @@ struct StepsOriginBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if origin == .aiSuggested {
-                Label("Suggested by on-device AI — not from the video", systemImage: "sparkles")
+                Label("Suggested by AI — not from the video", systemImage: "sparkles")
                     .font(.subheadline.bold())
                 Text("A guess from the ingredient list. Check times and temperatures before cooking.")
                     .font(.caption)

@@ -36,6 +36,13 @@ struct RootView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink {
+                            AISettingsView()
+                        } label: {
+                            Label("AI settings", systemImage: "sparkles")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
                             DiagnosticsView()
                         } label: {
                             Label("Diagnostics", systemImage: "stethoscope")

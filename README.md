@@ -15,6 +15,14 @@ ingredient list, cooking steps and macros — entirely on-device, free to run.
 - Sign and install the `.ipa` yourself (e.g. Feather). Keep the bundle IDs unchanged and keep the
   app extension (PlugIns) so the share extension is re-signed too.
 
+## AI
+
+- Default: **Apple Intelligence** on the iPhone — free, private, offline.
+- Optional: **your own API key** (Settings → AI): Claude (Anthropic) or any OpenAI-compatible provider
+  (OpenAI, Google Gemini, OpenRouter, …). The key is pasted in the app and stored only in the iPhone's
+  Keychain — it is never in this repo, the builds or exported logs. Only recipe text (caption, transcript,
+  on-screen text) is sent; the video stays on the phone. Macros always come from the bundled USDA data.
+
 ## Layout
 
 | Path | What |

@@ -122,8 +122,8 @@ private struct ItemDetailContent: View {
     @ViewBuilder
     private var recipeSection: some View {
         Section {
-            if !services.aiAvailability.isAvailable {
-                Label(services.aiAvailability.message, systemImage: "exclamationmark.triangle")
+            if let problem = services.extractionProblem {
+                Label(problem, systemImage: "exclamationmark.triangle")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }

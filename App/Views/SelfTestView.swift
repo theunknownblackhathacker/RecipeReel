@@ -24,9 +24,11 @@ struct SelfTestView: View {
                         Label("Run self-test", systemImage: "checklist")
                     }
                 }
-                .disabled(running || !services.aiAvailability.isAvailable)
-                if !services.aiAvailability.isAvailable {
-                    Text(services.aiAvailability.message)
+                .disabled(running || services.extractionProblem != nil)
+                LabeledContent("AI", value: services.engineLabel)
+                    .font(.footnote)
+                if let problem = services.extractionProblem {
+                    Text(problem)
                         .font(.footnote)
                         .foregroundStyle(.orange)
                 }
@@ -59,10 +61,10 @@ struct SelfTestView: View {
         defer { running = false }
         results = []
         let pipeline = services.makePipeline()
-        var log: [String] = ["Run \(Date().formatted(.iso8601)) · AI \(services.aiAvailability.shortLabel)"]
+        var log: [String] = ["Run \(Date().formatted(.iso8601)) · AI \(services.engineLabel)"]
         for testCase in ExtractionSelfTest.cases {
             progress = testCase.name
-            let start = AnalysisReport(itemID: nil, aiStatus: services.aiAvailability.shortLabel, timeline: testCase.timeline)
+            let start = AnalysisReport(itemID: nil, aiStatus: services.engineLabel, timeline: testCase.timeline)
             let report = await pipeline.extract(into: start, rememberedMatches: [:], update: { _ in })
             let result = SelfTestResult(
                 caseName: testCase.name,

@@ -34,7 +34,7 @@ final class AnalysisRunner {
 
         let log = AppLog.shared
         let pipeline = services.makePipeline()
-        log.log("pipeline", "Start \(item.id.uuidString.prefix(8)) (\(item.kind.rawValue)), AI \(services.aiAvailability.shortLabel)")
+        log.log("pipeline", "Start \(item.id.uuidString.prefix(8)) (\(item.kind.rawValue)), AI \(services.engineLabel)")
         let started = Date()
 
         let videoURL = item.kind == .video ? importModel.videoURL(for: item) : nil

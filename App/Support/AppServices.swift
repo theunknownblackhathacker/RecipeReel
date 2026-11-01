@@ -11,6 +11,8 @@ final class AppServices {
     let databaseProblem: String?
     let databaseInfo: [String: String]
     private(set) var aiAvailability: AIAvailability
+    /// AI engine choice and the user's own API keys.
+    let ai = AISettings()
     /// Summary of the last in-app AI self-test, included in exported logs.
     var lastSelfTestLog: [String] = []
 
@@ -34,7 +36,7 @@ final class AppServices {
             databaseInfo = [:]
         }
         aiAvailability = AIAvailability.current()
-        AppLog.shared.log("services", "AI: \(aiAvailability.shortLabel); nutrition DB: \(databaseProblem ?? "\(databaseInfo["food_count"] ?? "?") foods")")
+        AppLog.shared.log("services", "AI: \(engineLabel); Apple Intelligence \(aiAvailability.shortLabel); nutrition DB: \(databaseProblem ?? "\(databaseInfo["food_count"] ?? "?") foods")")
     }
 
     func refreshAvailability() {
@@ -60,30 +62,74 @@ final class AppServices {
 
     // MARK: - Pipeline
 
+    // MARK: - Engine status
+
+    /// What's doing the extraction right now (for logs and Diagnostics; never includes a key).
+    var engineLabel: String {
+        switch ai.engine {
+        case .onDevice: "Apple Intelligence"
+        case .cloud: "My API: \(ai.cloudLabel)"
+        }
+    }
+
+    /// Nil when extraction can run; otherwise a message for the user.
+    var extractionProblem: String? {
+        switch ai.engine {
+        case .onDevice:
+            return aiAvailability.isAvailable ? nil : aiAvailability.message
+        case .cloud:
+            if ai.hasKey[ai.provider] != true { return "Add your API key in Settings → AI, or switch back to Apple Intelligence." }
+            if ai.model.trimmingCharacters(in: .whitespaces).isEmpty { return "Choose a model in Settings → AI." }
+            return nil
+        }
+    }
+
     func makePipeline() -> PipelineCoordinator {
         refreshAvailability()
-        let ai: FoundationModelsExtractor? = aiAvailability.isAvailable ? FoundationModelsExtractor() : nil
-        return PipelineCoordinator(
-            transcriber: SpeechTranscriptionService(),
-            ocr: VisionFrameOCRService(),
-            extractor: ai,
-            matcher: ai,
-            database: database,
-            aiStatus: aiAvailability.shortLabel
-        )
+        switch ai.engine {
+        case .onDevice:
+            let model: FoundationModelsExtractor? = aiAvailability.isAvailable ? FoundationModelsExtractor() : nil
+            return PipelineCoordinator(
+                transcriber: SpeechTranscriptionService(),
+                ocr: VisionFrameOCRService(),
+                extractor: model,
+                matcher: model,
+                database: database,
+                aiStatus: "Apple Intelligence \(aiAvailability.shortLabel)"
+            )
+        case .cloud:
+            let cloud: CloudExtractor?
+            var status = engineLabel
+            do {
+                cloud = try ai.makeCloudExtractor()
+            } catch {
+                cloud = nil
+                status += " — \(error.localizedDescription)"
+            }
+            return PipelineCoordinator(
+                transcriber: SpeechTranscriptionService(),
+                ocr: VisionFrameOCRService(),
+                extractor: cloud,
+                matcher: cloud,
+                database: database,
+                aiStatus: status,
+                maxChunkCharacters: 60_000        // cloud models have large context windows
+            )
+        }
     }
 
     /// Asks the on-device model for a suggested method (used only when the user taps "Suggest steps").
     func suggestSteps(for recipe: Recipe) async throws -> [StepDraft] {
         refreshAvailability()
-        guard aiAvailability.isAvailable else { throw SuggestError.unavailable(aiAvailability.message) }
+        if let problem = extractionProblem { throw SuggestError.unavailable(problem) }
         let ingredients = recipe.sortedIngredients
         let lines = ingredients.map { ingredient -> String in
             let amount = RecipeMath.amountText(quantity: ingredient.quantity, unit: ingredient.unit)
             return amount == "?" ? ingredient.name : "\(amount) \(ingredient.name)"
         }
-        AppLog.shared.log("suggest", "Suggesting steps for “\(recipe.title)” (\(lines.count) ingredients)")
-        let raws = try await FoundationModelsExtractor().suggestSteps(title: recipe.title, ingredients: lines)
+        AppLog.shared.log("suggest", "Suggesting steps for “\(recipe.title)” (\(lines.count) ingredients) with \(engineLabel)")
+        let suggester: any StepSuggesting = ai.engine == .cloud ? try ai.makeCloudExtractor() : FoundationModelsExtractor()
+        let raws = try await suggester.suggestSteps(title: recipe.title, ingredients: lines)
         let steps = ExtractionPostProcessor.cleanSuggestedSteps(raws, ingredientNames: ingredients.map(\.name))
         AppLog.shared.log("suggest", "Got \(raws.count) raw / \(steps.count) kept: " + steps.map(\.text).joined(separator: " | "))
         return steps
