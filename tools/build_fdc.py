@@ -48,6 +48,8 @@ CARBS_BY_SUMMATION = 1050
 FIBER = 1079
 SUGARS_TOTAL = 2000
 SUGARS_TOTAL_NLEA = 1063
+# FNDDS lists nutrients by their legacy "nutrient number" instead of the FDC nutrient id.
+LEGACY_NUMBERS = {208: ENERGY_KCAL, 203: PROTEIN, 204: FAT, 205: CARBS_BY_DIFFERENCE, 291: FIBER, 269: SUGARS_TOTAL}
 WANTED = {ENERGY_KCAL, ENERGY_ATWATER_SPECIFIC, ENERGY_ATWATER_GENERAL, PROTEIN, FAT,
           CARBS_BY_DIFFERENCE, CARBS_BY_SUMMATION, FIBER, SUGARS_TOTAL, SUGARS_TOTAL_NLEA}
 KEEP_TYPES = {"foundation_food", "sr_legacy_food", "survey_fndds_food"}
@@ -181,6 +183,7 @@ def load_dataset(zf, label):
             nid = int(row["nutrient_id"])
         except (KeyError, ValueError):
             continue
+        nid = LEGACY_NUMBERS.get(nid, nid)
         if fid not in foods or nid not in WANTED:
             continue
         amount = to_float(row.get("amount"))
