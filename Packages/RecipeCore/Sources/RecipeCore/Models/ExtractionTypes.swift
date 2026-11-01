@@ -7,15 +7,18 @@ import Foundation
 /// Pass A output for one ingredient, as the model wrote it.
 public struct RawIngredient: Codable, Sendable, Equatable {
     public var sourceQuote: String
+    /// The heading the ingredient is listed under ("Alfredo sauce"), empty if none.
+    public var group: String?
     public var name: String
     public var quantity: Double
     public var unit: String
     public var note: String
     public var confidence: String
 
-    public init(sourceQuote: String = "", name: String, quantity: Double, unit: String,
+    public init(sourceQuote: String = "", group: String = "", name: String, quantity: Double, unit: String,
                 note: String = "", confidence: String = "high") {
         self.sourceQuote = sourceQuote
+        self.group = group
         self.name = name
         self.quantity = quantity
         self.unit = unit
@@ -111,10 +114,13 @@ public struct IngredientDraft: Codable, Sendable, Equatable {
     public var fdcID: Int?
     public var foodDescription: String?
     public var matchStatus: MatchStatus
+    /// Part of the recipe the ingredient belongs to ("Chicken", "Alfredo sauce"); nil or empty if none.
+    public var group: String?
 
     public init(name: String, quantity: Double?, unit: CanonicalUnit, note: String = "",
                 confidence: Confidence, sourceQuote: String = "", fdcID: Int? = nil,
-                foodDescription: String? = nil, matchStatus: MatchStatus = .unmatched) {
+                foodDescription: String? = nil, matchStatus: MatchStatus = .unmatched, group: String? = nil) {
+        self.group = group
         self.name = name
         self.quantity = quantity
         self.unit = unit

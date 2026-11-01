@@ -23,6 +23,8 @@ public struct ExtractionTestCase: Sendable, Identifiable {
     public var ingredients: [ExpectedIngredient]
     /// Allowed number of steps (Case 3 must be exactly 0).
     public var stepCount: ClosedRange<Int>
+    /// Expected parts of the recipe (ingredient headings), empty when the recipe has none.
+    public var groups: [String] = []
 }
 
 public struct SelfTestCheck: Sendable, Codable {
@@ -115,6 +117,48 @@ public enum ExtractionSelfTest {
                 .init(["sriracha"], 1, .tsp)
             ],
             stepCount: 0...0
+        ),
+        ExtractionTestCase(
+            name: "Case 4 — ingredients in parts (sub-recipes)",
+            timeline: SourceTimeline(
+                caption: """
+                Crispy Chicken Alfredo Burritos 🌯 serves 4
+                Chicken
+                500g chicken breast, chopped into small pieces
+                1 tbsp avocado oil
+                1 tsp cajun seasoning
+                Cook the chicken in the oil with the seasoning for 8 minutes until cooked through.
+                Alfredo Sauce
+                2 tbsp butter
+                2 cloves garlic, minced
+                1½ cups (355 ml) heavy cream
+                50g parmesan, grated
+                Melt the butter, add the garlic, pour in the cream and simmer for 5 minutes. Stir in the parmesan.
+                The Filling
+                Cooked chicken
+                All of the Alfredo sauce
+                100g mozzarella
+                Mix everything together.
+                Time to Make It Crispy
+                4 large flour tortillas
+                2 eggs, whisked
+                100g panko
+                Oil for frying
+                Fill the tortillas and roll them up. Dip in the egg, then the panko, and fry until golden.
+                #burrito #highprotein
+                """,
+                spoken: [],
+                onScreen: []
+            ),
+            servings: 4,
+            ingredients: [
+                .init(["chicken"], 500, .g), .init(["avocado"], 1, .tbsp), .init(["cajun"], 1, .tsp),
+                .init(["butter"], 2, .tbsp), .init(["garlic"], 2, .clove), .init(["cream"], 355, .ml),
+                .init(["parmesan"], 50, .g), .init(["mozzarella"], 100, .g), .init(["tortilla"], 4, .piece),
+                .init(["egg"], 2, .piece), .init(["panko"], 100, .g), .init(["oil"], nil, .ml)
+            ],
+            stepCount: 4...10,
+            groups: ["Chicken", "Alfredo sauce", "The filling", "Time to make it crispy"]
         )
     ]
 
@@ -148,6 +192,18 @@ public enum ExtractionSelfTest {
             passed: unmatched.count <= 1,
             message: unmatched.isEmpty ? "no extra ingredients" : "extra ingredients: \(unmatched.map(\.name).joined(separator: ", "))"
         ))
+
+        if !testCase.groups.isEmpty {
+            let found = IngredientGroup.make(outcome.ingredients) { $0.group ?? "" }.map(\.title)
+            let foundKeys = Set(found.map(IngredientGroups.key))
+            let wantKeys = Set(testCase.groups.map(IngredientGroups.key))
+            // "The filling" and "Filling" are the same part.
+            let strip = { (key: String) in key.hasPrefix("the ") ? String(key.dropFirst(4)) : key }
+            checks.append(SelfTestCheck(
+                passed: Set(foundKeys.map(strip)) == Set(wantKeys.map(strip)),
+                message: "parts: \(found.map { $0.isEmpty ? "(none)" : $0 }.joined(separator: " / "))"
+            ))
+        }
 
         checks.append(SelfTestCheck(
             passed: testCase.stepCount.contains(outcome.steps.count),

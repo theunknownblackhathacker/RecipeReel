@@ -11,6 +11,13 @@ enum Prompts {
     Rules:
     - List every ingredient once. Ignore hashtags, requests to like or follow, equipment, the title, \
     and nutrition claims such as "38g protein".
+    - group: when the text lists ingredients under headings for parts of the dish (Chicken, Alfredo \
+    sauce, The filling, For the coating), copy the heading the ingredient is listed under, in sentence \
+    case, without "For the" or a colon. Empty when there are no headings. An ingredient listed under two \
+    headings is listed once for each heading.
+    - Skip lines that only refer to something made earlier in the recipe (the cooked chicken, all of \
+    the sauce, the filling): they are not new ingredients.
+    - When an amount is given in two units (1½ cups (355 ml)), use the metric one.
     - name: the specific food, keeping its type or variety (short-grain rice, low-fat mayonnaise, dark soy \
     sauce, ginger paste, 0% Greek yogurt, chicken thighs). note: only preparation or serving words.
     - quantity is the total amount as a number. Fractions become decimals (1/2 = 0.5). Multiply per-item \

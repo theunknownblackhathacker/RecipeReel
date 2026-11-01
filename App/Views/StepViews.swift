@@ -198,6 +198,9 @@ struct StepEditorSheet: View {
                             } label: {
                                 HStack {
                                     Text(ingredient.name).foregroundStyle(.primary)
+                                    if !ingredient.group.isEmpty {
+                                        Text(ingredient.group).font(.caption).foregroundStyle(.secondary)
+                                    }
                                     Spacer()
                                     if used.contains(ingredient.name) { Image(systemName: "checkmark") }
                                 }
@@ -234,7 +237,7 @@ struct StepEditorSheet: View {
 
     private func save() {
         let minutes = Int(minutesText.trimmingCharacters(in: .whitespaces)).flatMap { $0 > 0 ? $0 : nil }
-        let names = recipe.sortedIngredients.map(\.name).filter(used.contains)
+        let names = IngredientGroups.uniqueNames(recipe.sortedIngredients.map(\.name).filter(used.contains))
         let cleanText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if let step {
             step.text = cleanText

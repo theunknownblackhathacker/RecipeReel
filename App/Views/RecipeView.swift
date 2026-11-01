@@ -79,29 +79,53 @@ struct RecipeView: View {
                 }
             }
 
-            Section {
-                ForEach(Array(ingredients.enumerated()), id: \.element.persistentModelID) { offset, ingredient in
-                    let line = lines[offset]
-                    if !reviewOnly || ingredient.needsReview || line.conversion.isWeak {
-                        Button {
-                            editingIngredient = ingredient
-                        } label: {
-                            IngredientRow(ingredient: ingredient, nutrition: line, factor: factor)
-                        }
-                        .buttonStyle(.plain)
+            // One section per part of the recipe ("Chicken", "Alfredo sauce"…), or a single
+            // "Ingredients" section when the recipe has no parts.
+            let rows = ingredients.enumerated().map { IngredientLine(ingredient: $0.element, nutrition: lines[$0.offset]) }
+            let groups = IngredientGroup.make(rows) { $0.ingredient.group }
+            let hasParts = groups.count > 1 || groups.first.map { !$0.title.isEmpty } == true
+            if groups.isEmpty {
+                Section("Ingredients") {
+                    Button {
+                        addingIngredient = true
+                    } label: {
+                        Label("Add ingredient", systemImage: "plus")
                     }
                 }
-                .onDelete { offsets in
-                    for index in offsets { context.delete(ingredients[index]) }
-                    renumberIngredients()
+            }
+            ForEach(Array(groups.enumerated()), id: \.offset) { groupOffset, group in
+                let visible = group.items.filter { !reviewOnly || $0.ingredient.needsReview || $0.nutrition.conversion.isWeak }
+                if !visible.isEmpty || groupOffset == groups.count - 1 {
+                    Section {
+                        ForEach(visible, id: \.ingredient.persistentModelID) { row in
+                            Button {
+                                editingIngredient = row.ingredient
+                            } label: {
+                                IngredientRow(ingredient: row.ingredient, nutrition: row.nutrition, factor: factor)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .onDelete { offsets in
+                            for index in offsets { context.delete(visible[index].ingredient) }
+                            renumberIngredients()
+                        }
+                        if groupOffset == groups.count - 1 {
+                            Button {
+                                addingIngredient = true
+                            } label: {
+                                Label("Add ingredient", systemImage: "plus")
+                            }
+                        }
+                    } header: {
+                        if hasParts {
+                            GroupHeader(title: group.title.isEmpty ? "Other" : group.title,
+                                        summary: NutritionCalculator.summarize(group.items.map(\.nutrition), servings: recipe.servings),
+                                        perServing: perServing, isFirst: groupOffset == 0)
+                        } else {
+                            Text("Ingredients")
+                        }
+                    }
                 }
-                Button {
-                    addingIngredient = true
-                } label: {
-                    Label("Add ingredient", systemImage: "plus")
-                }
-            } header: {
-                Text("Ingredients")
             }
 
             let steps = recipe.sortedSteps
@@ -331,7 +355,45 @@ struct RecipeView: View {
     }
 
     private func renumberIngredients() {
-        for (index, ingredient) in recipe.sortedIngredients.enumerated() { ingredient.order = index }
+        for (index, ingredient) in recipe.sortedIngredients.filter({ !$0.isDeleted }).enumerated() { ingredient.order = index }
+    }
+}
+
+/// An ingredient with its computed nutrition, for grouping on the recipe screen.
+struct IngredientLine {
+    let ingredient: Ingredient
+    let nutrition: IngredientNutrition
+}
+
+/// Section header for one part of a recipe, with that part's calories.
+struct GroupHeader: View {
+    let title: String
+    let summary: RecipeNutrition
+    let perServing: Bool
+    let isFirst: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if isFirst {
+                Text("Ingredients")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .textCase(nil)
+                Spacer()
+                let macros = perServing ? summary.perServing : summary.total
+                if macros.kcal > 0 {
+                    Text("\(RecipeMath.kcal(macros.kcal)) kcal\(perServing ? " / serving" : "")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
+                }
+            }
+        }
     }
 }
 

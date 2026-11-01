@@ -91,7 +91,7 @@ struct WebStepsImportView: View {
     }
 
     private func importSteps(_ item: ImportPreview) {
-        let names = recipe.sortedIngredients.map(\.name)
+        let names = IngredientGroups.uniqueNames(recipe.sortedIngredients.map(\.name))
         let drafts = ExtractionPostProcessor.webSteps(item.steps, ingredientNames: names)
         for old in recipe.steps { context.delete(old) }
         _ = RecipeFactory.replaceSteps(of: recipe, with: drafts, origin: .web,

@@ -45,6 +45,9 @@ public final class Recipe {
 
     public var sortedIngredients: [Ingredient] { ingredients.sorted { $0.order < $1.order } }
 
+    /// Ingredients by part of the recipe, parts in the order they first appear.
+    public var ingredientGroups: [IngredientGroup<Ingredient>] { IngredientGroup.make(sortedIngredients, group: \.group) }
+
     /// The servings the stored amounts make.
     public var yield: Int { yieldServings > 0 ? yieldServings : max(1, servings) }
 
@@ -70,6 +73,8 @@ public final class Ingredient {
     public var fdcID: Int?
     public var foodDescription: String?
     public var matchStatusRaw: String
+    /// Part of the recipe this ingredient belongs to ("Chicken", "Alfredo sauce"); empty if none.
+    public var group: String = ""
     /// Set when the user has checked or edited this line.
     public var reviewed: Bool
     public var userEdited: Bool
@@ -77,8 +82,9 @@ public final class Ingredient {
 
     public init(order: Int, name: String, quantity: Double?, unit: CanonicalUnit, note: String = "",
                 confidence: Confidence = .high, sourceQuote: String = "", fdcID: Int? = nil,
-                foodDescription: String? = nil, matchStatus: MatchStatus = .unmatched) {
+                foodDescription: String? = nil, matchStatus: MatchStatus = .unmatched, group: String = "") {
         self.order = order
+        self.group = group
         self.name = name
         self.quantity = quantity
         self.unitRaw = unit.rawValue
@@ -197,7 +203,7 @@ public enum RecipeFactory {
         recipe.ingredients = outcome.ingredients.enumerated().map { index, draft in
             Ingredient(order: index, name: draft.name, quantity: draft.quantity, unit: draft.unit, note: draft.note,
                        confidence: draft.confidence, sourceQuote: draft.sourceQuote, fdcID: draft.fdcID,
-                       foodDescription: draft.foodDescription, matchStatus: draft.matchStatus)
+                       foodDescription: draft.foodDescription, matchStatus: draft.matchStatus, group: draft.group ?? "")
         }
         recipe.steps = outcome.steps.enumerated().map { index, draft in
             Step(order: index, text: draft.text, minutes: draft.minutes, ingredientNames: draft.ingredientNames,

@@ -19,6 +19,7 @@ struct IngredientEditorView: View {
     @State private var quantityText = ""
     @State private var unit: CanonicalUnit = .g
     @State private var note = ""
+    @State private var group = ""
     @State private var fdcID: Int?
     @State private var foodDescription: String?
     @State private var foodChanged = false
@@ -41,6 +42,19 @@ struct IngredientEditorView: View {
                         .labelsHidden()
                     }
                     TextField("Note (e.g. chopped)", text: $note)
+                    HStack {
+                        TextField("Part of the recipe (optional)", text: $group)
+                        if !existingGroups.isEmpty {
+                            Menu {
+                                ForEach(existingGroups, id: \.self) { name in
+                                    Button(name) { group = name }
+                                }
+                                Button("None") { group = "" }
+                            } label: {
+                                Image(systemName: "list.bullet")
+                            }
+                        }
+                    }
                 } footer: {
                     if !quantityText.isEmpty, RecipeMath.parseQuantity(quantityText) == nil {
                         Text("Use a number like 80, 1.5 or 1/2.").foregroundStyle(.red)
@@ -97,6 +111,11 @@ struct IngredientEditorView: View {
         }
     }
 
+    /// Parts already used in this recipe ("Chicken", "Alfredo sauce").
+    private var existingGroups: [String] {
+        IngredientGroup.make(recipe.sortedIngredients) { $0.group }.map(\.title).filter { !$0.isEmpty }
+    }
+
     /// Live grams/kcal preview for the current values.
     private var preview: String? {
         guard let food = services.food(id: fdcID) else { return nil }
@@ -116,6 +135,7 @@ struct IngredientEditorView: View {
         quantityText = shown.map { $0 == $0.rounded() ? String(Int($0)) : String(format: "%g", $0) } ?? ""
         unit = ingredient.unit
         note = ingredient.note
+        group = ingredient.group
         fdcID = ingredient.fdcID
         foodDescription = ingredient.foodDescription
     }
@@ -135,6 +155,7 @@ struct IngredientEditorView: View {
         target.quantity = quantity
         target.unit = unit
         target.note = note.trimmingCharacters(in: .whitespaces)
+        target.group = IngredientGroups.clean(group)
         target.fdcID = fdcID
         target.foodDescription = foodDescription
         if foodChanged {

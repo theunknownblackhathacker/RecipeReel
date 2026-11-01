@@ -14,12 +14,16 @@ public enum ExtractionPostProcessor {
 
     public static func mergeIngredients(_ raws: [RawRecipe]) -> (title: String, servings: Int?, ingredients: [IngredientDraft]) {
         var drafts: [IngredientDraft] = []
-        var keys: [String] = []
+        var keys: [(group: String, name: String)] = []
         for raw in raws {
             for item in raw.ingredients {
                 guard var draft = clean(item) else { continue }
                 let key = TextMatching.normalize(draft.name)
-                if let index = keys.firstIndex(where: { $0 == key || TextMatching.similarity($0, key) >= 0.9 }) {
+                let groupKey = IngredientGroups.key(draft.group ?? "")
+                // The same food may appear once per part of the recipe (salt for the chicken and for the sauce).
+                if let index = keys.firstIndex(where: {
+                    $0.group == groupKey && ($0.name == key || TextMatching.similarity($0.name, key) >= 0.9)
+                }) {
                     // Same ingredient seen again (OCR repeats, chunk overlap): keep one, never add them up.
                     let existing = drafts[index]
                     if existing.quantity == nil, draft.quantity != nil {
@@ -31,9 +35,10 @@ public enum ExtractionPostProcessor {
                     continue
                 }
                 drafts.append(draft)
-                keys.append(key)
+                keys.append((groupKey, key))
             }
         }
+        drafts = tidyGroups(drafts)
         let title = raws.map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty } ?? ""
         let servings = raws.map(\.servings).first { $0 > 0 }
         return (title, servings, drafts)
@@ -55,14 +60,96 @@ public enum ExtractionPostProcessor {
                 unit = .toTaste
             }
         }
+        let group = IngredientGroups.clean(item.group ?? "")
         return IngredientDraft(
             name: name,
             quantity: quantity,
             unit: unit,
             note: item.note.trimmingCharacters(in: .whitespacesAndNewlines),
             confidence: confidence,
-            sourceQuote: item.sourceQuote
+            sourceQuote: item.sourceQuote,
+            group: IngredientGroups.isNoGroup(group) ? nil : group
         )
+    }
+
+    // MARK: - Parts of a recipe (ingredient groups)
+
+    /// Words that turn an ingredient line into a reference to something made earlier
+    /// ("cooked chicken", "all of the Alfredo sauce").
+    static let referencePrefixes = ["all of the ", "all the ", "all of ", "rest of the ", "the rest of the ",
+                                    "the ", "your ", "cooked ", "prepared ", "reserved ", "remaining ",
+                                    "leftover "]
+
+    /// Cleans up groups after merging:
+    /// - lines that refer to an earlier part ("cooked chicken" under "The filling") are removed,
+    /// - an ungrouped repeat of a grouped line (the voice mentioning it again) is removed,
+    /// - groups that carry no information (one heading over everything, or one heading per line) are cleared.
+    static func tidyGroups(_ input: [IngredientDraft]) -> [IngredientDraft] {
+        var drafts = input
+        let groupKeys = IngredientGroups.uniqueNames(drafts.compactMap { $0.group }.map(IngredientGroups.key)).filter { !$0.isEmpty }
+        guard !groupKeys.isEmpty else { return drafts }
+
+        // 1. References to earlier parts.
+        let partNames = groupKeys.map(stripLeadingThe)
+        var kept: [IngredientDraft] = []
+        for draft in drafts {
+            let ownGroup = IngredientGroups.key(draft.group ?? "")
+            let name = TextMatching.normalize(draft.name)
+            let (stripped, hadPrefix) = stripReference(name)
+            let others = zip(groupKeys, partNames).filter { $0.0 != ownGroup }.map { $0.1 }
+            let namesAPart = others.contains { $0 == stripped || TextMatching.similarity($0, stripped) >= 0.9 }
+            if namesAPart, draft.quantity == nil || hadPrefix { continue }
+            if hadPrefix, draft.quantity == nil {
+                let words = Set(stripped.split(separator: " "))
+                let earlier = kept.filter { IngredientGroups.key($0.group ?? "") != ownGroup }
+                if !words.isEmpty, earlier.contains(where: { words.isSubset(of: Set(TextMatching.normalize($0.name).split(separator: " "))) }) {
+                    continue
+                }
+            }
+            kept.append(draft)
+        }
+        drafts = kept
+
+        // 2. Ungrouped repeats of grouped lines.
+        let snapshot = drafts
+        drafts = snapshot.filter { draft in
+            guard draft.group == nil else { return true }
+            let name = TextMatching.normalize(draft.name)
+            return !snapshot.contains { other in
+                other.group != nil
+                    && (TextMatching.normalize(other.name) == name || TextMatching.similarity(TextMatching.normalize(other.name), name) >= 0.9)
+                    && (draft.quantity == nil || draft.quantity == other.quantity)
+            }
+        }
+
+        // 3. Groups that don't split anything.
+        let grouped = drafts.filter { $0.group != nil }
+        let distinct = Set(grouped.compactMap { $0.group.map(IngredientGroups.key) })
+        let oneHeadingOverAll = distinct.count == 1 && grouped.count == drafts.count
+        let headingPerLine = distinct.count >= 3 && distinct.count * 2 > drafts.count + 1
+        if oneHeadingOverAll || headingPerLine {
+            for index in drafts.indices { drafts[index].group = nil }
+        }
+        return drafts
+    }
+
+    static func stripReference(_ normalizedName: String) -> (String, Bool) {
+        var text = normalizedName
+        var changed = true
+        var stripped = false
+        while changed {
+            changed = false
+            for prefix in referencePrefixes where text.hasPrefix(prefix) && text.count > prefix.count {
+                text = String(text.dropFirst(prefix.count))
+                changed = true
+                if prefix != "the " && prefix != "your " { stripped = true }
+            }
+        }
+        return (text, stripped)
+    }
+
+    static func stripLeadingThe(_ key: String) -> String {
+        key.hasPrefix("the ") && key.count > 4 ? String(key.dropFirst(4)) : key
     }
 
     // MARK: - Steps (pass B)

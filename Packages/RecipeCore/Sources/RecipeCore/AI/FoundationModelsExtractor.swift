@@ -17,6 +17,8 @@ enum GenConfidence {
 struct GenIngredient {
     @Guide(description: "Exact words from the text that mention this ingredient")
     var sourceQuote: String
+    @Guide(description: "Heading this ingredient is listed under (part of the dish), empty if none")
+    var group: String
     @Guide(description: "Ingredient name, singular, no brand")
     var name: String
     @Guide(description: "Total amount as a number, 0 if not stated")
@@ -95,6 +97,7 @@ public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching, StepSug
             ingredients: recipe.ingredients.map {
                 RawIngredient(
                     sourceQuote: $0.sourceQuote,
+                    group: $0.group,
                     name: $0.name,
                     quantity: $0.quantity,
                     unit: String(describing: $0.unit),

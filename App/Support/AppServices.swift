@@ -139,12 +139,13 @@ final class AppServices {
         let ingredients = recipe.sortedIngredients
         let lines = ingredients.map { ingredient -> String in
             let amount = RecipeMath.amountText(quantity: ingredient.quantity, unit: ingredient.unit)
-            return amount == "?" ? ingredient.name : "\(amount) \(ingredient.name)"
+            let line = amount == "?" ? ingredient.name : "\(amount) \(ingredient.name)"
+            return ingredient.group.isEmpty ? line : "\(line) (for the \(ingredient.group.lowercased()))"
         }
         AppLog.shared.log("suggest", "Suggesting steps for “\(recipe.title)” (\(lines.count) ingredients) with \(engineLabel)")
         let suggester: any StepSuggesting = ai.engine == .cloud ? try ai.makeCloudExtractor() : FoundationModelsExtractor()
         let raws = try await suggester.suggestSteps(title: recipe.title, ingredients: lines)
-        let steps = ExtractionPostProcessor.cleanSuggestedSteps(raws, ingredientNames: ingredients.map(\.name))
+        let steps = ExtractionPostProcessor.cleanSuggestedSteps(raws, ingredientNames: IngredientGroups.uniqueNames(ingredients.map(\.name)))
         AppLog.shared.log("suggest", "Got \(raws.count) raw / \(steps.count) kept: " + steps.map(\.text).joined(separator: " | "))
         return steps
     }

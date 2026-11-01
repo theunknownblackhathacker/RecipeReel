@@ -93,7 +93,7 @@ public struct AnalysisReport: Codable, Sendable {
             lines.append("-- Result --")
             lines.append("Title: \(outcome.title) · servings: \(outcome.servings.map(String.init) ?? "not stated") · instructions: \(outcome.hasInstructions)")
             for i in outcome.ingredients {
-                lines.append("  • \(i.quantity.map { String(format: "%g", $0) } ?? "–") \(i.unit.rawValue) \(i.name) [\(i.confidence.rawValue)] → \(i.foodDescription ?? "unmatched") (\(i.matchStatus.rawValue))\(i.note.isEmpty ? "" : " note: \(i.note)")")
+                lines.append("  • \(i.group.map { $0.isEmpty ? "" : "[\($0)] " } ?? "")\(i.quantity.map { String(format: "%g", $0) } ?? "–") \(i.unit.rawValue) \(i.name) [\(i.confidence.rawValue)] → \(i.foodDescription ?? "unmatched") (\(i.matchStatus.rawValue))\(i.note.isEmpty ? "" : " note: \(i.note)")")
             }
             for (n, s) in outcome.steps.enumerated() {
                 lines.append("  \(n + 1). \(s.text)\(s.minutes.map { " [\($0) min]" } ?? "") [\(s.confidence.rawValue)]\(s.fromPictures == true ? " [\(s.sourceQuote)]" : "") uses: \(s.ingredientNames.joined(separator: ", "))")
@@ -220,7 +220,7 @@ public actor PipelineCoordinator {
                 return report
             }
             update(PipelineUpdate(stage: .watchingVideo, detail: "\(frames.count) frames"))
-            let names = outcome.ingredients.map(\.name)
+            let names = IngredientGroups.uniqueNames(outcome.ingredients.map(\.name))
             let method = try await visual.extractStepsFromFrames(frames, sourceText: report.timeline.text, ingredientNames: names)
             report.rawVisualOutput = method.rawOutput
             let checked = ExtractionPostProcessor.visualSteps(method, frameTimes: frames.map(\.time),
@@ -336,7 +336,7 @@ public actor PipelineCoordinator {
         // Pass B — steps (independent of pass A's success).
         update(PipelineUpdate(stage: .writingSteps))
         let bStart = Date()
-        let names = ingredients.map(\.name)
+        let names = IngredientGroups.uniqueNames(ingredients.map(\.name))
         var methods: [RawMethod] = []
         for chunk in chunks {
             do {

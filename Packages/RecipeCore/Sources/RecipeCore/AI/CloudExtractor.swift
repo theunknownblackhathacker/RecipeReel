@@ -39,8 +39,8 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, Vi
             title: decoded.title,
             servings: decoded.servings,
             ingredients: decoded.ingredients.map {
-                RawIngredient(sourceQuote: $0.sourceQuote, name: $0.name, quantity: $0.quantity, unit: $0.unit,
-                              note: $0.note, confidence: $0.confidence)
+                RawIngredient(sourceQuote: $0.sourceQuote, group: $0.group ?? "", name: $0.name, quantity: $0.quantity,
+                              unit: $0.unit, note: $0.note, confidence: $0.confidence)
             },
             rawOutput: json
         )
@@ -133,6 +133,8 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, Vi
     struct DecodedRecipe: Decodable {
         struct Item: Decodable {
             let sourceQuote: String
+            /// Optional when decoding so a provider without strict schemas can leave it out.
+            let group: String?
             let name: String
             let quantity: Double
             let unit: String
@@ -198,12 +200,13 @@ enum CloudSchemas {
             "servings": ["type": "integer", "description": "Servings stated in the text, 0 if not stated"],
             "ingredients": ["type": "array", "items": object([
                 "sourceQuote": ["type": "string", "description": "Exact words from the text that mention this ingredient"],
+                "group": ["type": "string", "description": "Heading this ingredient is listed under (part of the dish), empty if none"],
                 "name": ["type": "string", "description": "Ingredient name, singular, no brand"],
                 "quantity": ["type": "number", "description": "Total amount as a number, 0 if not stated"],
                 "unit": ["type": "string", "enum": units],
                 "note": ["type": "string", "description": "Preparation or original vague wording, empty if none"],
                 "confidence": ["type": "string", "enum": confidence]
-            ], order: ["sourceQuote", "name", "quantity", "unit", "note", "confidence"])]
+            ], order: ["sourceQuote", "group", "name", "quantity", "unit", "note", "confidence"])]
         ], order: ["title", "servings", "ingredients"])
     }
 
