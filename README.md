@@ -38,4 +38,7 @@ ingredient list, cooking steps and macros — entirely on-device, free to run.
 
 ## Data
 
-Nutrition data will come from USDA FoodData Central (public domain, CC0).
+Nutrition data: USDA FoodData Central — Foundation Foods, SR Legacy and FNDDS survey foods (public domain, CC0),
+bundled as `App/Resources/fdc.sqlite` by the **Build FDC database** workflow. Missing or branded products can come
+from [Open Food Facts](https://world.openfoodfacts.org) (ODbL; barcode scan or name search, online) or be typed
+from a label; these are saved on the phone as "My foods".

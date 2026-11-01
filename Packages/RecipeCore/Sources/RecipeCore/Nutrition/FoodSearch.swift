@@ -77,6 +77,49 @@ public enum FoodSearch {
         "lemon juice": "lemon juice raw",
         "lime juice": "lime juice raw",
         "garlic": "garlic raw",
+        "garlic paste": "garlic raw",
+        "minced garlic": "garlic raw",
+        "garlic clove": "garlic raw",
+        "garlic powder": "spices garlic powder",
+        "granulated garlic": "spices garlic powder",
+        "onion powder": "spices onion powder",
+        "ginger paste": "ginger root raw",
+        "fresh ginger": "ginger root raw",
+        "grated ginger": "ginger root raw",
+        "ginger": "ginger root raw",
+        "ground ginger": "spices ginger ground",
+        "sushi rice": "rice white short grain",
+        "short grain rice": "rice white short grain",
+        "arborio rice": "rice white medium grain",
+        "risotto rice": "rice white medium grain",
+        "dry weight": "uncooked",
+        "skimmed milk": "milk nonfat fluid",
+        "skim milk": "milk nonfat fluid",
+        "semi skimmed milk": "milk reduced fat fluid 2",
+        "low fat milk": "milk lowfat fluid",
+        "whole milk": "milk whole",
+        "0 fat": "nonfat",
+        "zero fat": "nonfat",
+        "fat free": "nonfat",
+        "skimmed": "nonfat",
+        "low fat": "lowfat",
+        "water": "water bottled generic",
+        "cold water": "water bottled generic",
+        "mayonnaise": "salad dressing mayonnaise regular",
+        "mayo": "salad dressing mayonnaise regular",
+        "low fat mayonnaise": "salad dressing mayonnaise light",
+        "low fat mayo": "salad dressing mayonnaise light",
+        "light mayonnaise": "salad dressing mayonnaise light",
+        "light mayo": "salad dressing mayonnaise light",
+        "reduced fat mayonnaise": "salad dressing mayonnaise light",
+        "dark soy sauce": "soy sauce shoyu",
+        "light soy sauce": "soy sauce shoyu",
+        "chicken thighs": "chicken thigh boneless skinless raw",
+        "skyr": "yogurt greek plain nonfat",
+        "0 greek yogurt": "yogurt greek plain nonfat",
+        "fat free greek yogurt": "yogurt greek plain nonfat",
+        "nonfat greek yogurt": "yogurt greek plain nonfat",
+        "0 greek yoghurt": "yogurt greek plain nonfat",
         "onion": "onions raw",
         "red onion": "onions raw",
         "tomato": "tomatoes red ripe raw",
@@ -124,7 +167,6 @@ public enum FoodSearch {
         "smoked paprika": "spices paprika",
         "oat milk": "beverages oat milk",
         "milk": "milk whole",
-        "skim milk": "milk nonfat",
         "black pepper": "spices pepper black",
         "pepper": "spices pepper black",
         "salt": "salt table",
@@ -152,12 +194,13 @@ public enum FoodSearch {
         "roughly", "thinly", "optional", "organic", "large", "medium", "small", "of", "and", "or", "the", "a",
         "to", "for", "with", "plus", "extra", "some", "about", "handful", "pinch", "splash", "knob",
         "tbsp", "tsp", "g", "ml", "cup", "cups", "oz", "lb", "pieces", "piece", "crushed", "ripe", "softened",
+        "weight", "if", "needed", "finish", "serve", "serving", "taste", "packet", "instructions", "according",
         "melted", "room", "temperature", "cold", "warm", "hot", "boneless", "skinless", "skin", "on", "off"
     ]
 
     /// Words that mean the ingredient is already cooked or processed (keeps cooked entries in results).
     static let cookedWords: Set<String> = [
-        "cooked", "boiled", "fried", "roasted", "grilled", "baked", "steamed", "canned", "smoked",
+        "cooked", "boiled", "fried", "roasted", "grilled", "baked", "steamed", "canned", "smoked", "mashed",
         "toasted", "leftover", "stewed", "braised", "poached", "sauteed"
     ]
 
@@ -168,11 +211,19 @@ public enum FoodSearch {
     ]
 
     /// Search terms for an ingredient name (normalized, synonyms applied, prep words removed).
+    static let sortedSynonymKeys: [String] = synonyms.keys.sorted { ($0.count, $0) > ($1.count, $1) }
+
     public static func terms(for ingredientName: String) -> [String] {
+        // Replace every recipe phrase with its FDC wording, longest phrases first. Replaced parts are
+        // protected with placeholders so a replacement is never rewritten again.
         var text = " " + TextMatching.normalize(ingredientName) + " "
-        for key in synonyms.keys.sorted(by: { $0.count > $1.count }) where text.contains(" \(key) ") {
-            text = text.replacingOccurrences(of: " \(key) ", with: " \(synonyms[key]!) ")
-            break
+        var replacements: [String] = []
+        for key in sortedSynonymKeys where text.contains(" \(key) ") {
+            text = text.replacingOccurrences(of: " \(key) ", with: " §\(replacements.count)§ ")
+            replacements.append(synonyms[key]!)
+        }
+        for (index, value) in replacements.enumerated() {
+            text = text.replacingOccurrences(of: "§\(index)§", with: value)
         }
         var seen = Set<String>()
         return text.split(separator: " ").map(String.init).filter { token in

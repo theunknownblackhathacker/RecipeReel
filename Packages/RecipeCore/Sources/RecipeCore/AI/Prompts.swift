@@ -11,6 +11,8 @@ enum Prompts {
     Rules:
     - List every ingredient once. Ignore hashtags, requests to like or follow, equipment, the title, \
     and nutrition claims such as "38g protein".
+    - name: the specific food, keeping its type or variety (short-grain rice, low-fat mayonnaise, dark soy \
+    sauce, ginger paste, 0% Greek yogurt, chicken thighs). note: only preparation or serving words.
     - quantity is the total amount as a number. Fractions become decimals (1/2 = 0.5). Multiply per-item \
     amounts (two fillets of six ounces each = 12 oz). Use 0 when no amount is stated.
     - Use piece for countable items. Use to_taste for salt or pepper without an amount.

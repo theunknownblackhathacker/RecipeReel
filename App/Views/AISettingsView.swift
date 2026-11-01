@@ -10,6 +10,7 @@ struct AISettingsView: View {
 
     var body: some View {
         @Bindable var settings = services.ai
+        @Bindable var appServices = services
         Form {
             Section {
                 Picker("AI", selection: $settings.engine) {
@@ -25,6 +26,19 @@ struct AISettingsView: View {
                 Text(settings.engine == .onDevice
                      ? "Runs on this iPhone. Free and private; nothing leaves the device. Status: \(services.aiAvailability.shortLabel)."
                      : "Uses your own API account, which may cost money per recipe. Transcription, on-screen text and macro math still run on the iPhone; only the recipe text (caption, transcript, on-screen text) is sent to the provider — never the video.")
+            }
+
+            Section {
+                Toggle("Look up missing foods online", isOn: $appServices.onlineLookup)
+                NavigationLink {
+                    MyFoodsView()
+                } label: {
+                    LabeledContent("My foods", value: "\(services.customFoods.all.count)")
+                }
+            } header: {
+                Text("Nutrition data")
+            } footer: {
+                Text("USDA FoodData Central is built in. When an ingredient isn't found there, RecipeReel searches Open Food Facts (free, online) and saves what it picks to My foods. Only the ingredient name is sent.")
             }
 
             if settings.engine == .cloud {
@@ -109,7 +123,7 @@ struct AISettingsView: View {
                 }
             }
         }
-        .navigationTitle("AI")
+        .navigationTitle("AI & nutrition")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: settings.provider) { testResult = nil }
     }
@@ -130,5 +144,50 @@ struct AISettingsView: View {
             testResult = (false, error.localizedDescription)
             AppLog.shared.log("ai", "Connection test failed: \(services.ai.cloudLabel): \(error.localizedDescription)")
         }
+    }
+}
+
+/// The user's saved foods (labels, barcodes, Open Food Facts).
+struct MyFoodsView: View {
+    @Environment(AppServices.self) private var services
+    @State private var foods: [CustomFood] = []
+    @State private var adding = false
+
+    var body: some View {
+        List {
+            if foods.isEmpty {
+                Text("No foods yet. Add one from a label, scan a barcode in the food picker, or let RecipeReel find missing foods online.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(foods) { food in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(food.displayName)
+                    Text("per 100 g: \(Int(food.kcal.rounded())) kcal · P \(String(format: "%.1f", food.protein)) · C \(String(format: "%.1f", food.carbs)) · F \(String(format: "%.1f", food.fat))\(food.barcode.map { " · \($0)" } ?? "")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onDelete { offsets in
+                for index in offsets { services.customFoods.delete(id: foods[index].id) }
+                foods = services.customFoods.all
+            }
+        }
+        .navigationTitle("My foods")
+        .toolbar {
+            Button {
+                adding = true
+            } label: {
+                Label("Add", systemImage: "plus")
+            }
+        }
+        .sheet(isPresented: $adding) {
+            NavigationStack {
+                CustomFoodForm(initialName: "") { food in
+                    services.customFoods.add(food)
+                    foods = services.customFoods.all
+                }
+            }
+        }
+        .onAppear { foods = services.customFoods.all }
     }
 }

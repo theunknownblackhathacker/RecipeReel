@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Builds fdc.sqlite (bundled, read-only) from USDA FoodData Central CSV downloads.
 
-Data: Foundation Foods (latest) + SR Legacy (2018, final). Public domain (CC0), USDA FoodData Central.
+Data: Foundation Foods (latest usable) + SR Legacy (2018, final) + FNDDS survey foods (everyday foods and
+dishes "as eaten"). Public domain (CC0), USDA FoodData Central.
 
 Schema:
   food(fdc_id PK, description, data_type, category)
@@ -33,6 +34,7 @@ FALLBACK_FOUNDATION = [
     "FoodData_Central_foundation_food_csv_2025-12-18.zip",
 ]
 FALLBACK_SR_LEGACY = ["FoodData_Central_sr_legacy_food_csv_2018-04.zip"]
+FALLBACK_SURVEY = ["FoodData_Central_survey_food_csv_2024-10-31.zip"]
 USER_AGENT = "Mozilla/5.0 (RecipeReel fdc builder; +https://github.com/theunknownblackhathacker/RecipeReel)"
 
 # Nutrient IDs (see nutrition-data-notes.md)
@@ -48,7 +50,7 @@ SUGARS_TOTAL = 2000
 SUGARS_TOTAL_NLEA = 1063
 WANTED = {ENERGY_KCAL, ENERGY_ATWATER_SPECIFIC, ENERGY_ATWATER_GENERAL, PROTEIN, FAT,
           CARBS_BY_DIFFERENCE, CARBS_BY_SUMMATION, FIBER, SUGARS_TOTAL, SUGARS_TOTAL_NLEA}
-KEEP_TYPES = {"foundation_food", "sr_legacy_food"}
+KEEP_TYPES = {"foundation_food", "sr_legacy_food", "survey_fndds_food"}
 
 
 class DatasetError(Exception):
@@ -75,17 +77,18 @@ def http_get(url):
 
 
 def find_zip_names():
-    """Returns (foundation_zip_name, sr_legacy_zip_name) from the download page, with fallbacks."""
-    foundation, sr = [], []
+    """Returns (foundation zips, sr legacy zips, survey zips) from the download page, newest first."""
+    foundation, sr, survey = [], [], []
     try:
         html = http_get(PAGE_URL).decode("utf-8", errors="replace")
-        names = set(re.findall(r"FoodData_Central_(?:foundation|sr_legacy)_food_csv_[0-9A-Za-z_\-]+\.zip", html))
+        names = set(re.findall(r"FoodData_Central_(?:foundation|sr_legacy|survey)_food_csv_[0-9A-Za-z_\-]+\.zip", html))
         foundation = sorted((n for n in names if "_foundation_" in n), reverse=True)
         sr = sorted((n for n in names if "_sr_legacy_" in n), reverse=True)
+        survey = sorted((n for n in names if "_survey_" in n), reverse=True)
         print(f"Download page lists: {sorted(names)}")
     except Exception as exc:  # noqa: BLE001
         print(f"Could not read download page ({exc}); using fallback file names")
-    return (foundation or FALLBACK_FOUNDATION), (sr or FALLBACK_SR_LEGACY)
+    return (foundation or FALLBACK_FOUNDATION), (sr or FALLBACK_SR_LEGACY), (survey or FALLBACK_SURVEY)
 
 
 def download_first(names, label):
@@ -117,7 +120,24 @@ def normalize_type(value):
         return "foundation_food"
     if v in ("sr_legacy", "sr_legacy_food", "sr_legacy_foods"):
         return "sr_legacy_food"
+    if v in ("survey_fndds_food", "survey_(fndds)", "survey", "fndds"):
+        return "survey_fndds_food"
     return v
+
+
+def leading_amount(text):
+    """'1/4 cup' → 0.25, '1 1/2 tbsp' → 1.5, '2 slices' → 2, otherwise None."""
+    match = re.match(r"\s*(\d+)(?:\s+(\d+)/(\d+)|/(\d+)|\.(\d+))?", text or "")
+    if not match:
+        return None
+    whole = float(match.group(1))
+    if match.group(2):
+        return whole + float(match.group(2)) / float(match.group(3))
+    if match.group(4):
+        return whole / float(match.group(4))
+    if match.group(5):
+        return float(match.group(1) + "." + match.group(5))
+    return whole
 
 
 def to_float(value):
@@ -180,11 +200,17 @@ def load_dataset(zf, label):
         grams = to_float(row.get("gram_weight"))
         if not grams or grams <= 0:
             continue
+        description = (row.get("portion_description") or "").strip()
         amount = to_float(row.get("amount")) or 1.0
         unit_name = units.get(row.get("measure_unit_id") or "", "")
         if unit_name.lower() == "undetermined":
             unit_name = ""
-        parts = [unit_name, (row.get("portion_description") or "").strip(), (row.get("modifier") or "").strip()]
+            # FNDDS: the amount is written in the description ("1/4 cup", "1 1/2 tbsp").
+            amount = leading_amount(description) or amount
+        modifier = (row.get("modifier") or "").strip()
+        if modifier.isdigit():          # FNDDS uses numeric modifier codes
+            modifier = ""
+        parts = [unit_name, description, modifier]
         unit_text = " ".join(p for p in parts if p and p.lower() != "quantity not specified").strip()
         if not unit_text:
             continue
@@ -212,7 +238,7 @@ def macro_row(fid, n):
 
 
 def build(out_path):
-    foundation_names, sr_names = find_zip_names()
+    foundation_names, sr_names, survey_names = find_zip_names()
     s_name, s_zip = download_first(sr_names, "SR Legacy")
 
     all_foods, all_nutrients, all_portions = {}, {}, []
@@ -241,6 +267,22 @@ def build(out_path):
         all_portions.extend(portions)
         used.append(name)
         f_name = name
+        break
+
+    # FNDDS survey foods: everyday foods and dishes as eaten (fills gaps like condiments and mixed dishes).
+    survey_name = "skipped"
+    for candidate in survey_names[:3]:
+        try:
+            name, zf = download_first([candidate], "FNDDS")
+            foods, nutrients, portions = load_dataset(zf, f"FNDDS ({candidate})")
+        except (DatasetError, SystemExit) as exc:
+            warning(f"Skipping {candidate}: {exc}")
+            continue
+        all_foods.update(foods)
+        all_nutrients.update(nutrients)
+        all_portions.extend(portions)
+        used.append(name)
+        survey_name = name
         break
 
     if os.path.exists(out_path):
@@ -274,7 +316,8 @@ def build(out_path):
     db.execute("INSERT INTO food_fts (description, fdc_id) SELECT description, fdc_id FROM food")
     built = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     db.executemany("INSERT INTO meta VALUES (?, ?)", [
-        ("foundation_file", f_name if f_name in used else "skipped"), ("sr_legacy_file", s_name), ("built_at", built),
+        ("foundation_file", f_name if f_name in used else "skipped"), ("sr_legacy_file", s_name),
+        ("survey_file", survey_name), ("built_at", built),
         ("source", "USDA FoodData Central (public domain, CC0)"), ("schema_version", "1"),
     ])
     db.commit()
@@ -301,6 +344,9 @@ def report(out_path):
     hits = db.execute("""SELECT f.description FROM food_fts JOIN food f ON f.fdc_id = food_fts.fdc_id
                          WHERE food_fts MATCH '"rolled"* AND "oat"*' ORDER BY bm25(food_fts) LIMIT 3""").fetchall()
     notice(f"search 'rolled oats' -> {[h[0] for h in hits]}")
+    for word in ("mirin", "rice wine", "teriyaki", "hummus", "tzatziki"):
+        rows = db.execute("SELECT description FROM food WHERE description LIKE ? LIMIT 4", (f"%{word}%",)).fetchall()
+        notice(f"contains '{word}': {[r[0] for r in rows]}")
     db.close()
 
 
@@ -309,7 +355,7 @@ def main():
     parser.add_argument("--out", default="App/Resources/fdc.sqlite")
     args = parser.parse_args()
     f_name, s_name = build(args.out)
-    notice(f"Built from {f_name} + {s_name}")
+    notice(f"Built from {f_name} + {s_name} (+ FNDDS)")
     report(args.out)
 
 

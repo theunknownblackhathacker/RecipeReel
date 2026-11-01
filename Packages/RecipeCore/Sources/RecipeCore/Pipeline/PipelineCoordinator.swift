@@ -122,6 +122,8 @@ public actor PipelineCoordinator {
     private let keyFrames: (any KeyFrameProviding)?
     private let matchConcurrency: Int
     private let maxKeyFrames: Int
+    private let customFoods: CustomFoodStore?
+    private let onlineFoods: (any OnlineFoodSearching)?
 
     public init(
         transcriber: any TranscriptionService,
@@ -134,7 +136,9 @@ public actor PipelineCoordinator {
         visual: (any VisualStepExtracting)? = nil,
         keyFrames: (any KeyFrameProviding)? = nil,
         matchConcurrency: Int = 1,
-        maxKeyFrames: Int = 12
+        maxKeyFrames: Int = 12,
+        customFoods: CustomFoodStore? = nil,
+        onlineFoods: (any OnlineFoodSearching)? = nil
     ) {
         self.transcriber = transcriber
         self.ocr = ocr
@@ -147,6 +151,8 @@ public actor PipelineCoordinator {
         self.keyFrames = keyFrames
         self.matchConcurrency = max(1, matchConcurrency)
         self.maxKeyFrames = maxKeyFrames
+        self.customFoods = customFoods
+        self.onlineFoods = onlineFoods
     }
 
     public func run(
@@ -280,14 +286,17 @@ public actor PipelineCoordinator {
             for index in ingredients.indices {
                 let ingredient = ingredients[index]
                 let key = TextMatching.normalize(ingredient.name)
-                if let remembered = rememberedMatches[key], let food = database.food(id: remembered) {
+                if let remembered = rememberedMatches[key], let food = lookupFood(id: remembered, database: database) {
                     ingredients[index].fdcID = food.fdcID
                     ingredients[index].foodDescription = food.description
                     ingredients[index].matchStatus = .remembered
                     logLines[index] = "\(ingredient.name) → \(food.description) (remembered)"
                     continue
                 }
-                let candidates = database.search(ingredientName: ingredient.name, limit: 10)
+                // The user's own foods first, then USDA (searched with the note too, e.g. "dry weight").
+                let own = (customFoods?.matching(ingredientName: ingredient.name) ?? [])
+                    .prefix(3).map { FoodCandidate(fdcID: $0.id, description: $0.displayName) }
+                let candidates = Array((own + database.search(ingredientName: ingredient.name, note: ingredient.note, limit: 10)).prefix(12))
                 guard !candidates.isEmpty else {
                     logLines[index] = "\(ingredient.name) → no candidates (terms: \(FoodSearch.terms(for: ingredient.name).joined(separator: " ")))"
                     continue
@@ -305,9 +314,10 @@ public actor PipelineCoordinator {
                     switch outcome {
                     case .success(let pick):
                         if let chosen = pick.index {
-                            ingredients[job.index].fdcID = job.candidates[chosen].fdcID
-                            ingredients[job.index].foodDescription = job.candidates[chosen].description
-                            ingredients[job.index].matchStatus = .matched
+                            let candidate = job.candidates[chosen]
+                            ingredients[job.index].fdcID = candidate.fdcID
+                            ingredients[job.index].foodDescription = candidate.description
+                            ingredients[job.index].matchStatus = candidate.fdcID < 0 ? .custom : .matched
                         }
                         logLines[job.index] = "\(job.name) → \(pick.rawOutput) | from: \(job.candidates.prefix(5).map(\.description).joined(separator: " / "))"
                     case .failure(let error):
@@ -316,6 +326,7 @@ public actor PipelineCoordinator {
                 }
             }
             report.foodMatchLog += logLines.filter { !$0.isEmpty }
+            await lookUpOnline(&ingredients, report: &report, update: update)
         } else {
             report.errors.append("Nutrition database missing: foods not matched.")
         }
@@ -350,6 +361,45 @@ public actor PipelineCoordinator {
             droppedSteps: steps.dropped
         )
         return report
+    }
+
+    private func lookupFood(id: Int, database: FDCDatabase) -> FoodRecord? {
+        id < 0 ? customFoods?.food(id: id)?.record : database.food(id: id)
+    }
+
+    /// Ingredients still without a match are searched on Open Food Facts; the model picks one result
+    /// (or none). Picked products are saved to the user's foods so they're reused next time.
+    private func lookUpOnline(
+        _ ingredients: inout [IngredientDraft],
+        report: inout AnalysisReport,
+        update: @escaping @Sendable (PipelineUpdate) -> Void
+    ) async {
+        guard let onlineFoods, let customFoods, let matcher else { return }
+        for index in ingredients.indices {
+            let ingredient = ingredients[index]
+            guard ingredient.fdcID == nil, ingredient.unit != .toTaste, ingredient.quantity != nil else { continue }
+            update(PipelineUpdate(stage: .matchingFoods, detail: "Online: \(ingredient.name)"))
+            do {
+                let found = try await onlineFoods.search(name: ingredient.name, limit: 8)
+                guard !found.isEmpty else {
+                    report.foodMatchLog.append("\(ingredient.name) → Open Food Facts: nothing found")
+                    continue
+                }
+                let candidates = found.enumerated().map { FoodCandidate(fdcID: -900_000 - $0.offset, description: $0.element.displayName) }
+                let detail = [ingredient.note, ingredient.quantity.map { "\(String(format: "%g", $0)) \(ingredient.unit.label)" } ?? ""]
+                    .filter { !$0.isEmpty }.joined(separator: ", ")
+                let pick = try await matcher.pickFood(ingredient: ingredient.name, detail: detail, candidates: candidates)
+                if let chosen = pick.index {
+                    let saved = customFoods.add(found[chosen])
+                    ingredients[index].fdcID = saved.id
+                    ingredients[index].foodDescription = saved.displayName
+                    ingredients[index].matchStatus = .openFoodFacts
+                }
+                report.foodMatchLog.append("\(ingredient.name) → Open Food Facts: \(pick.rawOutput) | from: \(found.prefix(5).map(\.displayName).joined(separator: " / "))")
+            } catch {
+                report.foodMatchLog.append("\(ingredient.name) → Open Food Facts error: \(error.localizedDescription)")
+            }
+        }
     }
 
     struct MatchJob: Sendable {

@@ -39,8 +39,11 @@ struct DiagnosticsView: View {
                     row("Nutrition foods", services.databaseInfo["food_count"] ?? "?")
                     row("Foundation file", services.databaseInfo["foundation_file"] ?? "?")
                     row("SR Legacy file", services.databaseInfo["sr_legacy_file"] ?? "?")
+                    row("FNDDS file", services.databaseInfo["survey_file"] ?? "not included")
                 }
                 row("Remembered matches", "\(services.rememberedMatches.count)")
+                row("My foods", "\(services.customFoods.all.count)")
+                row("Online lookup", services.onlineLookup ? "on (Open Food Facts)" : "off")
                 NavigationLink("AI self-test (recipe-test-cases)") {
                     SelfTestView()
                 }
@@ -217,6 +220,7 @@ struct DiagnosticsView: View {
         lines.append("Apple Intelligence: \(services.aiAvailability.shortLabel)")
         lines.append("Nutrition DB: \(services.databaseProblem ?? services.databaseInfo.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))")
         lines.append("Remembered matches: \(services.rememberedMatches.count)")
+        lines.append("My foods: \(services.customFoods.all.count) · online lookup \(services.onlineLookup ? "on" : "off")")
         if !services.lastSelfTestLog.isEmpty {
             lines.append("")
             lines.append("## AI self-test")

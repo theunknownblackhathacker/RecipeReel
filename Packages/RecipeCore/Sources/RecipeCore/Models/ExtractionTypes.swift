@@ -92,6 +92,10 @@ public enum MatchStatus: String, Codable, Sendable {
     case remembered
     /// The user picked it by hand.
     case manual
+    /// One of the user's own foods (from a label).
+    case custom
+    /// Found online on Open Food Facts.
+    case openFoodFacts
     /// No suitable food found.
     case unmatched
 }

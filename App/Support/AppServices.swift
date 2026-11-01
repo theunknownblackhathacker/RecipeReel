@@ -13,6 +13,13 @@ final class AppServices {
     private(set) var aiAvailability: AIAvailability
     /// AI engine choice and the user's own API keys.
     let ai = AISettings()
+    /// The user's own foods (from labels, barcodes and Open Food Facts).
+    let customFoods = CustomFoodStore(fileURL: AppPaths.customFoodsURL)
+    let openFoodFacts = OpenFoodFactsClient()
+    /// Look up still-unmatched ingredients on Open Food Facts while making a recipe.
+    var onlineLookup: Bool = UserDefaults.standard.object(forKey: "food.onlineLookup") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(onlineLookup, forKey: "food.onlineLookup") }
+    }
     /// Summary of the last in-app AI self-test, included in exported logs.
     var lastSelfTestLog: [String] = []
 
@@ -95,7 +102,9 @@ final class AppServices {
                 extractor: model,
                 matcher: model,
                 database: database,
-                aiStatus: "Apple Intelligence \(aiAvailability.shortLabel)"
+                aiStatus: "Apple Intelligence \(aiAvailability.shortLabel)",
+                customFoods: customFoods,
+                onlineFoods: onlineLookup ? openFoodFacts : nil
             )
         case .cloud:
             let cloud: CloudExtractor?
@@ -116,7 +125,9 @@ final class AppServices {
                 maxChunkCharacters: 60_000,       // cloud models have large context windows
                 visual: cloud,                    // look at key frames when no text describes the method
                 keyFrames: VideoKeyFrameProvider(),
-                matchConcurrency: 5               // food picks in parallel
+                matchConcurrency: 5,              // food picks in parallel
+                customFoods: customFoods,
+                onlineFoods: onlineLookup ? openFoodFacts : nil
             )
         }
     }
@@ -149,6 +160,7 @@ final class AppServices {
 
     func food(id: Int?) -> FoodRecord? {
         guard let id else { return nil }
+        if id < 0 { return customFoods.food(id: id)?.record }
         return database?.food(id: id)
     }
 }

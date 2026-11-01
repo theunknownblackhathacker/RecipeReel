@@ -36,6 +36,20 @@ public final class FDCDatabase: @unchecked Sendable {
 
     // MARK: - Queries
 
+    /// Candidates using the ingredient's note too ("rice" + "short-grain or sushi rice, dry weight"):
+    /// results for name + note first, then for the name alone.
+    public func search(ingredientName: String, note: String, limit: Int = 10) -> [FoodCandidate] {
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedNote.isEmpty else { return search(ingredientName: ingredientName, limit: limit) }
+        var seen = Set<String>()
+        // Note first: descriptors usually precede the food ("low-fat" + "mayonnaise" → "low fat mayonnaise").
+        let combined = search(ingredientName: trimmedNote + " " + ingredientName, limit: limit)
+        let plain = search(ingredientName: ingredientName, limit: limit)
+        // Keep the best few of each so a note that over-narrows can't hide the plain matches.
+        let merged = Array(combined.prefix(6)) + plain + combined.dropFirst(6)
+        return Array(merged.filter { seen.insert($0.description.lowercased()).inserted }.prefix(limit))
+    }
+
     /// Up to `limit` candidate foods for an ingredient name, best first.
     public func search(ingredientName: String, limit: Int = 10) -> [FoodCandidate] {
         let terms = FoodSearch.terms(for: ingredientName)

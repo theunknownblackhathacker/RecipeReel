@@ -7,6 +7,10 @@ enum AppPaths {
         URL.applicationSupportDirectory.appending(path: "Imports", directoryHint: .isDirectory)
     }
 
+    static var customFoodsURL: URL {
+        URL.applicationSupportDirectory.appending(path: "MyFoods.json")
+    }
+
     static var appLogURL: URL {
         URL.applicationSupportDirectory.appending(path: "Diagnostics/app.log")
     }

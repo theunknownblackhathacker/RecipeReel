@@ -54,6 +54,7 @@ targets:
           - UIInterfaceOrientationPortrait
         UIRequiresFullScreen: true
         ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: RecipeReel uses the camera only to scan food barcodes, to look up nutrition values.
         NSSpeechRecognitionUsageDescription: RecipeReel transcribes the recipe video's audio on your iPhone to find ingredients and steps. Nothing leaves the device.
         # "Open in RecipeReel" for video files. Files are copied in (not opened in place).
         LSSupportsOpeningDocumentsInPlace: false

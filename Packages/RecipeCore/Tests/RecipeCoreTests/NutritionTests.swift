@@ -24,11 +24,17 @@ enum FixtureDatabase {
         INSERT INTO food VALUES (171288, 'Egg, whole, cooked, fried', 'sr_legacy_food', 'Dairy and Egg Products');
         INSERT INTO food VALUES (173410, 'Butter, salted', 'sr_legacy_food', 'Dairy and Egg Products');
         INSERT INTO food VALUES (999001, 'Oil, sesame, salad or cooking', 'sr_legacy_food', 'Fats and Oils');
+        INSERT INTO food VALUES (168881, 'Rice, white, short-grain, enriched, uncooked', 'sr_legacy_food', 'Cereal Grains and Pasta');
+        INSERT INTO food VALUES (168882, 'Rice, white, short-grain, enriched, cooked', 'sr_legacy_food', 'Cereal Grains and Pasta');
+        INSERT INTO food VALUES (999002, 'Rice crackers', 'sr_legacy_food', 'Snacks');
         INSERT INTO macro VALUES (171413, 884, '1008', 0, 100, 0, 0, 0);
         INSERT INTO macro VALUES (171287, 143, '1008', 12.56, 9.51, 0.72, 0, 0.37);
         INSERT INTO macro VALUES (171288, 196, '1008', 13.61, 14.84, 0.83, 0, 0.4);
         INSERT INTO macro VALUES (173410, 717, '1008', 0.85, 81.11, 0.06, 0, 0.06);
         INSERT INTO macro VALUES (999001, 884, '1008', 0, 100, 0, 0, 0);
+        INSERT INTO macro VALUES (168881, 358, '1008', 6.5, 0.52, 79.15, 0, 0);
+        INSERT INTO macro VALUES (168882, 130, '1008', 2.36, 0.19, 28.73, 0, 0);
+        INSERT INTO macro VALUES (999002, 387, '1008', 7.1, 2.8, 81.5, 0, 0);
         INSERT INTO portion VALUES (171413, 1, 'tbsp', 13.5);
         INSERT INTO portion VALUES (171413, 1, 'cup', 216);
         INSERT INTO portion VALUES (171287, 1, 'large', 50);
@@ -177,6 +183,23 @@ struct FDCDatabaseTests {
         #expect(db.search(ingredientName: "dragonfruit").isEmpty)
     }
 
+    @Test func noteHelpsFindTheRightFood() throws {
+        let db = try FixtureDatabase.make()
+        // Claude named it just "rice" and put the variety in the note (real log, teriyaki chicken Reel).
+        let hits = db.search(ingredientName: "rice", note: "short-grain or sushi rice, dry weight")
+        #expect(hits.first?.fdcID == 168881)
+        #expect(db.search(ingredientName: "short-grain rice", note: "").first?.fdcID == 168881)
+    }
+
+    @Test func newSynonyms() {
+        #expect(FoodSearch.terms(for: "ginger paste") == ["ginger", "root", "raw"])
+        #expect(FoodSearch.terms(for: "garlic powder") == ["spices", "garlic", "powder"])
+        #expect(FoodSearch.terms(for: "low-fat mayonnaise") == ["salad", "dressing", "mayonnaise", "light"])
+        #expect(FoodSearch.terms(for: "0% Greek yoghurt") == ["yogurt", "greek", "plain", "nonfat"])
+        // Several phrases in one name are all translated.
+        #expect(FoodSearch.terms(for: "short-grain or sushi rice, dry weight") == ["short", "grain", "rice", "white", "uncooked"])
+    }
+
     @Test func foodRecordIncludesNutrientsAndPortions() throws {
         let db = try FixtureDatabase.make()
         let egg = try #require(db.food(id: 171287))
@@ -184,7 +207,7 @@ struct FDCDatabaseTests {
         #expect(egg.nutrients.protein == 12.56)
         #expect(egg.portions.count == 3)
         #expect(db.food(id: 42) == nil)
-        #expect(db.metadata()["food_count"] == "5")
+        #expect(db.metadata()["food_count"] == "8")
     }
 
     @Test func matchingInsidePipelineUsesDatabaseCandidates() async throws {
