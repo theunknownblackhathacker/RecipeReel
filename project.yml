@@ -36,6 +36,7 @@ targets:
       base:
         PRODUCT_NAME: RecipeReel
         PRODUCT_BUNDLE_IDENTIFIER: com.kevin.recipereel
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     entitlements:
       path: App/RecipeReel.entitlements
       properties:
