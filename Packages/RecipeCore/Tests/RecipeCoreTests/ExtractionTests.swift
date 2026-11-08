@@ -200,3 +200,26 @@ struct PipelineMockTests {
         #expect(FoundationModelsExtractor.parseChoice("9. Out of range", count: 5) == nil)
     }
 }
+
+@Suite("Step checks with spoken amounts")
+struct SpokenStepCheckTests {
+
+    /// From the Dave's hot chicken video: the transcriber split "1.5" into "one. 5" and said "one eighth".
+    @Test func spokenFractionsAndSplitDecimalsAreSupported() {
+        let allowed = ExtractionPostProcessor.numbersIncludingWords(
+            in: "Put one. 5 cups of buttermilk in a bowl, add one eighth cup of pickle juice, add one teaspoon")
+        let unsupported = ExtractionPostProcessor.unsupportedNumbers(
+            in: "Whisk 1.5 cups buttermilk with 1/8 cup pickle juice and 1 teaspoon of each seasoning", allowed: allowed)
+        #expect(unsupported.isEmpty)
+        // A temperature the video never said is still caught.
+        #expect(ExtractionPostProcessor.unsupportedNumbers(in: "Bake at 200°C", allowed: allowed) == [200])
+    }
+
+    @Test func spokenActionsCount() {
+        #expect(ExtractionPostProcessor.sourceDescribesMethod("Dredge it through the seasoned flour."))
+        #expect(ExtractionPostProcessor.sourceDescribesMethod("Once your oil reaches 360 degrees, and your chicken tenders."))
+        #expect(ExtractionPostProcessor.sourceDescribesMethod("O the marinated chicken out of the refrigerator."))
+        #expect(!ExtractionPostProcessor.sourceDescribesMethod("1/2 cup heavy cream"))
+        #expect(!ExtractionPostProcessor.sourceDescribesMethod("125g cooked basmati"))
+    }
+}

@@ -33,7 +33,7 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, Vi
 
     public func extractIngredients(from source: String) async throws -> RawRecipe {
         let json = try await call(Prompts.ingredientInstructions, Prompts.ingredientPrompt(source: source),
-                                  name: "recipe_ingredients", schema: CloudSchemas.recipe, maxTokens: 4_096)
+                                  name: "recipe_ingredients", schema: CloudSchemas.recipe, maxTokens: 16_000)
         let decoded = try decode(DecodedRecipe.self, json)
         return RawRecipe(
             title: decoded.title,
@@ -48,7 +48,7 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, Vi
 
     public func extractSteps(from source: String, ingredientNames: [String]) async throws -> RawMethod {
         let json = try await call(Prompts.stepInstructions, Prompts.stepPrompt(source: source, ingredientNames: ingredientNames),
-                                  name: "recipe_steps", schema: CloudSchemas.method, maxTokens: 4_096)
+                                  name: "recipe_steps", schema: CloudSchemas.method, maxTokens: 12_000)
         let decoded = try decode(DecodedMethod.self, json)
         return RawMethod(
             hasInstructions: decoded.hasInstructions,

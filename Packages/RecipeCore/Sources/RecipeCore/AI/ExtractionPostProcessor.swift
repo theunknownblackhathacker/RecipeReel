@@ -164,7 +164,13 @@ public enum ExtractionPostProcessor {
         "wait", "scoop", "assemble", "wrap", "fill", "shake", "squeeze", "drizzle", "toss", "beat", "mash",
         "press", "soak", "brown", "reduce", "oven", "pan", "skillet", "minutes", "minute", "mins", "min",
         "hour", "hours", "overnight", "until", "then", "stir", "dip", "coat", "bring", "let", "leave",
-        "grate", "crack", "pulse", "smash", "char", "broil", "poach", "fryer", "jar", "bowl"
+        "grate", "crack", "pulse", "smash", "char", "broil", "poach", "fryer", "jar", "bowl",
+        // Verbs only — nouns that also name ingredients ("cream", "juice", "pat of butter") would let an
+        // ingredient line pass as a method.
+        "dredge", "dredged", "dredging", "take", "pull", "turn", "split", "pound", "flatten", "trim",
+        "dissolve", "reach", "reaches", "degrees", "degree", "refrigerator", "dutch", "rack", "lay", "set",
+        "arrange", "tenderize", "debone", "shred", "rub", "brush", "deglaze", "strain", "sift", "ladle", "slide",
+        "stack"
     ]
 
     /// True when the source text contains any method vocabulary (hashtags excluded).
@@ -234,7 +240,7 @@ public enum ExtractionPostProcessor {
                 // Numbers in the step that don't appear in the source (invented times/temperatures).
                 var allowed = numbersIncludingWords(in: sourceText)
                 if let minutes { allowed.insert(Double(minutes)) }
-                let unsupported = numbers(in: text).subtracting(allowed)
+                let unsupported = unsupportedNumbers(in: text, allowed: allowed)
                 if !unsupported.isEmpty {
                     confidence = .low
                     dropped.append("\(text) — flagged: numbers \(unsupported.sorted()) not in source")
@@ -394,7 +400,32 @@ public enum ExtractionPostProcessor {
         for (word, value) in numberWords where q.contains(" \(word) ") { result.insert(Double(value)) }
         if q.contains(" a minute ") || q.contains(" an hour ") { result.insert(1) }
         if q.contains(" half ") { result.insert(0.5) }
+        for (word, value) in fractionWords where q.contains(" \(word) ") { result.insert(value) }
         return result
+    }
+
+    /// Spoken fractions ("one eighth cup", "a quarter teaspoon", "three quarters").
+    static let fractionWords: [String: Double] = [
+        "quarter": 0.25, "quarters": 0.25, "third": 1.0 / 3, "thirds": 1.0 / 3, "eighth": 0.125, "eighths": 0.125,
+        "three quarters": 0.75, "three quarter": 0.75, "two thirds": 2.0 / 3
+    ]
+
+    /// Numbers in a step that the source supports once speech-to-text quirks are allowed for:
+    /// "one eighth" → 1/8 (so 8 too), and "Put one. 5 cups" → 1.5 (a decimal split by the transcriber).
+    static func unsupportedNumbers(in text: String, allowed: Set<Double>) -> Set<Double> {
+        var allowed = allowed
+        for value in allowed where value > 0 && value < 1 {
+            let denominator = (1 / value).rounded()
+            if abs(1 / value - denominator) < 0.01 { allowed.insert(denominator) }
+        }
+        return numbers(in: text).subtracting(allowed).filter { value in
+            let whole = value.rounded(.down)
+            let fraction = value - whole
+            guard fraction > 0 else { return true }
+            let digits = String(format: "%g", fraction).dropFirst(2)    // 0.5 → "5"
+            guard let fractionDigits = Double(digits) else { return true }
+            return !(allowed.contains(whole) && allowed.contains(fractionDigits))
+        }
     }
 
     /// Numbers written as digits (incl. decimals and fractions like 1/2 → 0.5).
