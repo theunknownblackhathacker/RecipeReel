@@ -11,7 +11,24 @@ public enum FDCDatabaseError: LocalizedError, Sendable {
     }
 }
 
-/// Read-only access to the bundled `fdc.sqlite` (USDA FoodData Central, built by fdc.yml).
+/// Which food tables a search looks in.
+public enum FoodScope: Sendable {
+    case all
+    /// Ciqual (France) and CoFID (UK).
+    case european
+    /// USDA FoodData Central.
+    case usda
+
+    var sqlFilter: String {
+        switch self {
+        case .all: ""
+        case .european: " AND f.data_type IN ('ciqual', 'cofid')"
+        case .usda: " AND f.data_type NOT IN ('ciqual', 'cofid')"
+        }
+    }
+}
+
+/// Read-only access to the bundled `fdc.sqlite` (Ciqual, CoFID and USDA FoodData Central, built by fdc.yml).
 /// Uses Apple's built-in SQLite C API. All access is serialized by a lock.
 public final class FDCDatabase: @unchecked Sendable {
     // @unchecked: the connection is only touched while holding `lock`, and the file is read-only.
@@ -60,9 +77,25 @@ public final class FDCDatabase: @unchecked Sendable {
         return !searchFTS(FoodSearch.ftsQuery(terms: Array(terms.prefix(6)), all: true), limit: 1).isEmpty
     }
 
-    /// Up to `limit` candidate foods for an ingredient name, best first.
+    /// Up to `limit` candidate foods for an ingredient name, best first: matching European foods
+    /// (Ciqual, CoFID) ahead of USDA ones.
     public func search(ingredientName: String, limit: Int = 10) -> [FoodCandidate] {
-        let terms = FoodSearch.terms(for: ingredientName)
+        let usda = rankedSearch(terms: FoodSearch.terms(for: ingredientName), ingredientName: ingredientName,
+                                scope: .usda, limit: limit)
+        return FoodSearch.europeanFirst(europeanMatches(for: ingredientName), usda, limit: limit)
+    }
+
+    /// Good European matches for an ingredient (empty when the tables have nothing close).
+    public func europeanMatches(for ingredientName: String) -> [FoodCandidate] {
+        for terms in FoodSearch.europeanTermOptions(for: ingredientName) {
+            let hits = rankedSearch(terms: terms, ingredientName: ingredientName, scope: .european, limit: 20)
+                .filter { FoodSearch.isGoodEuropeanMatch($0.description, terms: terms, ingredientName: ingredientName) }
+            if !hits.isEmpty { return hits }
+        }
+        return []
+    }
+
+    private func rankedSearch(terms: [String], ingredientName: String, scope: FoodScope, limit: Int) -> [FoodCandidate] {
         guard !terms.isEmpty else { return [] }
         // All terms; if nothing matches, the largest subsets of terms that do (drops flavours and details
         // like "smoked" or "vanilla" wherever they appear).
@@ -71,7 +104,8 @@ public final class FDCDatabase: @unchecked Sendable {
         for size in stride(from: searchable.count, through: 1, by: -1) {
             var seen = Set<Int>()
             for subset in FoodSearch.combinations(of: searchable, size: size) {
-                for hit in searchFTS(FoodSearch.ftsQuery(terms: subset, all: true), limit: 150) where seen.insert(hit.fdcID).inserted {
+                for hit in searchFTS(FoodSearch.ftsQuery(terms: subset, all: true), limit: 150, scope: scope)
+                where seen.insert(hit.fdcID).inserted {
                     hits.append(hit)
                 }
             }
@@ -80,34 +114,39 @@ public final class FDCDatabase: @unchecked Sendable {
         let fullMatches = Set(hits.map(\.fdcID))
         if hits.count < limit {
             let anyTerm = FoodSearch.ftsQuery(terms: FoodSearch.coreTerms(terms), all: false)
-            hits += searchFTS(anyTerm, limit: 60).filter { !fullMatches.contains($0.fdcID) }
+            hits += searchFTS(anyTerm, limit: 60, scope: scope).filter { !fullMatches.contains($0.fdcID) }
         }
         // The two USDA datasets share some names ("Garlic, raw"): show each description once.
         var seenNames = Set<String>()
-        let unique = FoodSearch.rerank(hits, ingredientName: ingredientName, fullMatchIDs: fullMatches)
+        let unique = FoodSearch.rerank(hits, ingredientName: ingredientName, fullMatchIDs: fullMatches, searchTerms: terms)
             .filter { seenNames.insert($0.description.lowercased()).inserted }
         return Array(unique.prefix(limit))
     }
 
-    /// Free-text search for the manual food picker.
+    /// Free-text search for the manual food picker: European foods first.
     public func search(text: String, limit: Int = 30) -> [FoodCandidate] {
+        let european = europeanMatches(for: text)
         let terms = FoodSearch.terms(for: text)
-        guard !terms.isEmpty else { return [] }
-        let hits = searchFTS(FoodSearch.ftsQuery(terms: terms, all: true), limit: limit)
-        return hits.isEmpty ? searchFTS(FoodSearch.ftsQuery(terms: terms, all: false), limit: limit) : hits
+        guard !terms.isEmpty || !european.isEmpty else { return [] }
+        var hits = searchFTS(FoodSearch.ftsQuery(terms: terms, all: true), limit: limit)
+        if hits.isEmpty { hits = searchFTS(FoodSearch.ftsQuery(terms: terms, all: false), limit: limit) }
+        var seen = Set<Int>()
+        return Array((european + hits).filter { seen.insert($0.fdcID).inserted }.prefix(limit))
     }
 
-    public func searchFTS(_ match: String, limit: Int) -> [FoodCandidate] {
+    public func searchFTS(_ match: String, limit: Int, scope: FoodScope = .all) -> [FoodCandidate] {
+        guard !match.isEmpty else { return [] }
         let sql = """
-            SELECT f.fdc_id, f.description FROM food_fts
+            SELECT f.fdc_id, f.description, f.data_type FROM food_fts
             JOIN food f ON f.fdc_id = food_fts.fdc_id
-            WHERE food_fts MATCH ?1 ORDER BY bm25(food_fts) LIMIT ?2
+            WHERE food_fts MATCH ?1\(scope.sqlFilter) ORDER BY bm25(food_fts) LIMIT ?2
             """
         return query(sql, bind: { statement in
             Self.bindText(statement, 1, match)
             sqlite3_bind_int(statement, 2, Int32(limit))
         }) { statement in
-            FoodCandidate(fdcID: Int(sqlite3_column_int64(statement, 0)), description: Self.text(statement, 1) ?? "")
+            FoodCandidate(fdcID: Int(sqlite3_column_int64(statement, 0)), description: Self.text(statement, 1) ?? "",
+                          dataType: Self.text(statement, 2))
         }
     }
 

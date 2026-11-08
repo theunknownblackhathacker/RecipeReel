@@ -71,11 +71,13 @@ struct OpenFoodFactsTests {
         let search = #"{"count":2,"products":[{"code":"1","product_name":"Light Mayonnaise","brands":"Hellmann's","nutriments":{"energy-kcal_100g":262,"proteins_100g":0.8,"carbohydrates_100g":7.1,"fat_100g":25.6}},{"code":"2","product_name":"No values","nutriments":{}}]}"#
         let found = #"{"status":1,"product":{"code":"8712100325953","product_name":"Light Mayonnaise","brands":"Hellmann's","nutriments":{"energy-kcal_100g":262,"proteins_100g":0.8,"carbohydrates_100g":7.1,"fat_100g":25.6}}}"#
         let missing = #"{"status":0,"status_verbose":"product not found"}"#
-        let transport = FakeTransport([(200, search), (200, found), (200, missing)])
+        // Products sold in Greece come first; the same product in both answers is listed once.
+        let greek = #"{"count":2,"products":[{"code":"3","product_name":"Μαγιονέζα Light","brands":"Hellmann's","nutriments":{"energy-kcal_100g":290,"proteins_100g":0.7,"carbohydrates_100g":6,"fat_100g":29}},{"code":"1","product_name":"Light Mayonnaise","brands":"Hellmann's","nutriments":{"energy-kcal_100g":262,"proteins_100g":0.8,"carbohydrates_100g":7.1,"fat_100g":25.6}}]}"#
+        let transport = FakeTransport([(200, greek), (200, search), (200, found), (200, missing)])
         let client = OpenFoodFactsClient(transport: transport)
 
         let results = try await client.search(name: "light mayonnaise", limit: 10)
-        #expect(results.map(\.name) == ["Light Mayonnaise"])
+        #expect(results.map(\.name) == ["Μαγιονέζα Light", "Light Mayonnaise"])
         let product = try await client.product(barcode: "8712100325953")
         #expect(product?.barcode == "8712100325953")
         #expect(try await client.product(barcode: "0000") == nil)
@@ -83,8 +85,10 @@ struct OpenFoodFactsTests {
         let first = try #require(transport.requests.first)
         #expect(first.url?.host() == "world.openfoodfacts.org")
         #expect(first.url?.query()?.contains("search_terms=light%20mayonnaise") == true)
+        #expect(first.url?.query()?.contains("tag_0=greece") == true)
+        #expect(transport.requests[1].url?.query()?.contains("tag_0") == false)
         #expect(first.value(forHTTPHeaderField: "User-Agent")?.hasPrefix("RecipeReel") == true)
-        #expect(transport.requests[1].url?.path() == "/api/v2/product/8712100325953.json")
+        #expect(transport.requests[2].url?.path() == "/api/v2/product/8712100325953.json")
     }
 }
 

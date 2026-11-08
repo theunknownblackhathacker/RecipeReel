@@ -21,7 +21,7 @@ public enum OpenFoodFactsError: LocalizedError, Sendable {
 /// Open Food Facts (openfoodfacts.org): free, open database of packaged foods (ODbL licence).
 /// Values are crowd-sourced, so results are labelled as such in the app.
 public struct OpenFoodFactsClient: OnlineFoodSearching {
-    static let fields = "code,product_name,product_name_en,generic_name,brands,nutriments"
+    static let fields = "code,product_name,product_name_en,product_name_el,generic_name,brands,nutriments"
     static let userAgent = "RecipeReel/0.1 (personal iOS app)"
 
     let transport: any HTTPTransport
@@ -30,9 +30,21 @@ public struct OpenFoodFactsClient: OnlineFoodSearching {
         self.transport = transport
     }
 
+    /// Products sold in Greece first, then the rest of the world.
     public func search(name: String, limit: Int = 10) async throws -> [CustomFood] {
+        let local = (try? await searchProducts(name: name, country: "greece")) ?? []
+        let global = local.count >= limit ? [] : try await searchProducts(name: name, country: nil)
+        var seen = Set<String>()
+        let merged = (local + global).filter { food in
+            let key = food.barcode ?? (food.name + "|" + food.brand).lowercased()
+            return seen.insert(key).inserted
+        }
+        return Array(merged.prefix(limit))
+    }
+
+    func searchProducts(name: String, country: String?) async throws -> [CustomFood] {
         var components = URLComponents(string: "https://world.openfoodfacts.org/cgi/search.pl")!
-        components.queryItems = [
+        var items = [
             URLQueryItem(name: "search_terms", value: name),
             URLQueryItem(name: "search_simple", value: "1"),
             URLQueryItem(name: "action", value: "process"),
@@ -40,9 +52,17 @@ public struct OpenFoodFactsClient: OnlineFoodSearching {
             URLQueryItem(name: "page_size", value: "30"),
             URLQueryItem(name: "fields", value: Self.fields)
         ]
+        if let country {
+            items += [
+                URLQueryItem(name: "tagtype_0", value: "countries"),
+                URLQueryItem(name: "tag_contains_0", value: "contains"),
+                URLQueryItem(name: "tag_0", value: country)
+            ]
+        }
+        components.queryItems = items
         let object = try await getJSON(components.url!)
         let products = object["products"] as? [[String: Any]] ?? []
-        return Array(products.compactMap(Self.food(from:)).prefix(limit))
+        return products.compactMap(Self.food(from:))
     }
 
     public func product(barcode: String) async throws -> CustomFood? {
@@ -83,7 +103,7 @@ public struct OpenFoodFactsClient: OnlineFoodSearching {
         let kcal = value("energy-kcal_100g") ?? value("energy_100g").map { $0 / 4.184 }   // kJ → kcal
         guard let kcal, let protein = value("proteins_100g"), let carbs = value("carbohydrates_100g"),
               let fat = value("fat_100g"), kcal >= 0, kcal < 950 else { return nil }
-        let name = [product["product_name"], product["product_name_en"], product["generic_name"]]
+        let name = [product["product_name"], product["product_name_en"], product["product_name_el"], product["generic_name"]]
             .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
         guard let name else { return nil }

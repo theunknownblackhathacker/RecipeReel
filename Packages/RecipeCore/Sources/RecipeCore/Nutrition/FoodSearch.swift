@@ -206,14 +206,14 @@ public enum FoodSearch {
         "to", "for", "with", "plus", "extra", "some", "about", "handful", "pinch", "splash", "knob",
         "tbsp", "tsp", "g", "ml", "cup", "cups", "oz", "lb", "pieces", "piece", "crushed", "ripe", "softened",
         "weight", "if", "needed", "finish", "serve", "serving", "taste", "packet", "instructions", "according",
-        "melted", "room", "temperature", "cold", "warm", "hot", "skin", "on", "off",
+        "melted", "room", "temperature", "cold", "warm", "hot", "skin", "on", "off", "crumbled", "cubed",
         "thicken", "drizzle", "garnish", "dusting", "frying", "greasing", "brushing", "topping"
     ]
 
     /// Words that mean the ingredient is already cooked or processed (keeps cooked entries in results).
     static let cookedWords: Set<String> = [
         "cooked", "boiled", "fried", "roasted", "grilled", "baked", "steamed", "canned", "smoked", "mashed",
-        "toasted", "leftover", "stewed", "braised", "poached", "sauteed"
+        "toasted", "leftover", "stewed", "braised", "poached", "sauteed", "casseroled"
     ]
 
     /// Description words that usually make a database entry a poor default.
@@ -226,13 +226,17 @@ public enum FoodSearch {
     static let sortedSynonymKeys: [String] = synonyms.keys.sorted { ($0.count, $0) > ($1.count, $1) }
 
     public static func terms(for ingredientName: String) -> [String] {
-        // Replace every recipe phrase with its FDC wording, longest phrases first. Replaced parts are
+        terms(for: ingredientName, table: synonyms, sortedKeys: sortedSynonymKeys)
+    }
+
+    static func terms(for ingredientName: String, table: [String: String], sortedKeys: [String]) -> [String] {
+        // Replace every recipe phrase with its database wording, longest phrases first. Replaced parts are
         // protected with placeholders so a replacement is never rewritten again.
         var text = " " + TextMatching.normalize(ingredientName) + " "
         var replacements: [String] = []
-        for key in sortedSynonymKeys where text.contains(" \(key) ") {
+        for key in sortedKeys where text.contains(" \(key) ") {
             text = text.replacingOccurrences(of: " \(key) ", with: " §\(replacements.count)§ ")
-            replacements.append(synonyms[key]!)
+            replacements.append(table[key]!)
         }
         for (index, value) in replacements.enumerated() {
             text = text.replacingOccurrences(of: "§\(index)§", with: value)
@@ -274,14 +278,179 @@ public enum FoodSearch {
         return core.isEmpty ? terms : core
     }
 
+    // MARK: - European tables (Ciqual, CoFID)
+
+    /// Recipe wording → Ciqual/CoFID wording, used for the European search (checked before the USDA
+    /// wording). Only needed where the plain recipe words don't find the right European food.
+    public static let europeanSynonyms: [String: String] = [
+        "flour": "flour wheat white plain",
+        "plain flour": "flour wheat white plain",
+        "all purpose flour": "flour wheat white plain",
+        "white flour": "flour wheat white plain",
+        "wheat flour": "flour wheat white plain",
+        "self raising flour": "flour wheat self raising",
+        "self rising flour": "flour wheat self raising",
+        "bread flour": "flour wheat white breadmaking",
+        "cornstarch": "maize corn starch",
+        "corn starch": "maize corn starch",
+        "cornflour": "maize corn starch",
+        "heavy cream": "cream fresh whipping",
+        "heavy whipping cream": "cream fresh whipping",
+        "whipping cream": "cream fresh whipping",
+        "double cream": "cream fresh double",
+        "single cream": "cream fresh single",
+        "light cream": "cream fresh single",
+        "cooking cream": "cream fresh single",
+        "sour cream": "cream fresh soured",
+        "ground beef": "beef mince raw",
+        "minced beef": "beef mince raw",
+        "beef mince": "beef mince raw",
+        "ground pork": "pork mince raw",
+        "minced pork": "pork mince raw",
+        "ground lamb": "lamb mince raw",
+        "minced lamb": "lamb mince raw",
+        "chicken breast": "chicken breast without skin raw",
+        "chicken breasts": "chicken breast without skin raw",
+        "mustard": "mustard smooth",
+        "dijon mustard": "mustard smooth",
+        "yellow mustard": "mustard smooth",
+        "wholegrain mustard": "mustard wholegrain",
+        "spaghetti": "pasta dry raw",
+        "penne": "pasta dry raw",
+        "fusilli": "pasta dry raw",
+        "macaroni": "pasta dry raw",
+        "rigatoni": "pasta dry raw",
+        "orzo": "pasta dry raw",
+        "pasta": "pasta dry raw",
+        "chickpea": "chick pea dried",
+        "chickpeas": "chick pea dried",
+        "garbanzo beans": "chick pea dried",
+        "cumin": "cumin",
+        "ground cumin": "cumin",
+        "paprika": "paprika powder",
+        "smoked paprika": "paprika powder",
+        "sweet paprika": "paprika powder",
+        "cinnamon": "cinnamon powder",
+        "ground cinnamon": "cinnamon powder",
+        "black pepper": "black pepper powder",
+        "pepper": "black pepper powder",
+        "ground black pepper": "black pepper powder",
+        "baking soda": "bicarbonate soda",
+        "bicarbonate of soda": "bicarbonate soda",
+        "sugar": "sugar white",
+        "brown sugar": "sugar brown",
+        "light brown sugar": "sugar brown",
+        "dark brown sugar": "sugar brown",
+        "milk": "milk whole",
+        "apple cider vinegar": "vinegar cider",
+        "cider vinegar": "vinegar cider",
+        "red wine vinegar": "vinegar red wine",
+        "balsamic vinegar": "vinegar balsamic",
+        "feta": "feta ewe",
+        "feta cheese": "feta ewe",
+        "white sugar": "sugar white",
+        "granulated sugar": "sugar white",
+        "caster sugar": "sugar white",
+        "icing sugar": "sugar icing",
+        "powdered sugar": "sugar icing",
+        "confectioners sugar": "sugar icing",
+        "panko": "breadcrumbs",
+        "panko breadcrumbs": "breadcrumbs",
+        "panko bread crumbs": "breadcrumbs",
+        "bread crumbs": "breadcrumbs",
+        "flour tortilla": "tortilla wheat",
+        "flour tortillas": "tortilla wheat",
+        "tortilla wrap": "tortilla wheat",
+        "tortilla wraps": "tortilla wheat",
+        "wraps": "tortilla wheat",
+        "corn tortilla": "tortilla maize corn",
+        "corn tortillas": "tortilla maize corn",
+        "tomato paste": "tomato puree",
+        "skim milk": "milk skimmed",
+        "skimmed milk": "milk skimmed",
+        "semi skimmed milk": "milk semi skimmed",
+        "whole milk": "milk whole",
+        "greek yogurt": "yogurt greek style plain",
+        "greek yoghurt": "yogurt greek style plain",
+        "yoghurt": "yogurt",
+        "zucchini": "courgette zucchini",
+        "eggplant": "aubergine",
+        "scallion": "onion spring",
+        "scallions": "onion spring",
+        "green onion": "onion spring",
+        "green onions": "onion spring",
+        "spring onion": "onion spring",
+        "spring onions": "onion spring"
+    ]
+
+    static let sortedEuropeanKeys: [String] = europeanSynonyms.keys.sorted { ($0.count, $0) > ($1.count, $1) }
+
+    /// The recipe's own words, without preparation words (no synonyms).
+    public static func plainTerms(for ingredientName: String) -> [String] {
+        var seen = Set<String>()
+        return TextMatching.normalize(ingredientName).split(separator: " ").map(String.init).filter { token in
+            guard token.count >= 2, !ignoredWords.contains(token), !token.allSatisfy(\.isNumber) else { return false }
+            return seen.insert(token).inserted
+        }
+    }
+
+    /// Term lists to try against the European tables, best first: European wording (or the plain words
+    /// when no European synonym applies), then the USDA wording.
+    public static func europeanTermOptions(for ingredientName: String) -> [[String]] {
+        let text = " " + TextMatching.normalize(ingredientName) + " "
+        var options: [[String]] = []
+        if sortedEuropeanKeys.contains(where: { text.contains(" \($0) ") }) {
+            options.append(terms(for: ingredientName, table: europeanSynonyms, sortedKeys: sortedEuropeanKeys))
+        }
+        options.append(plainTerms(for: ingredientName))
+        options.append(terms(for: ingredientName))
+        var seen = Set<[String]>()
+        return options.filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    /// Words a European description may lack and still be the same food.
+    static let optionalEuropeanTerms: Set<String> = ["raw", "only", "meat", "regular", "plain", "whole", "fluid"]
+
+    /// A European food goes ahead of USDA only when it contains every important search word and isn't a
+    /// cooked or processed version the recipe didn't ask for.
+    public static func isGoodEuropeanMatch(_ description: String, terms: [String], ingredientName: String) -> Bool {
+        let words = descriptionWords(description)
+        let required = terms.filter { !optionalEuropeanTerms.contains($0) }
+        let covers = (required.isEmpty ? terms : required).allSatisfy { term in
+            words.contains { $0.hasPrefix(term) || (term.count > 3 && term.hasPrefix($0) && $0.count >= 3) }
+        }
+        guard covers else { return false }
+        let nameTokens = Set(TextMatching.tokens(ingredientName))
+        let wordSet = Set(words)
+        if nameTokens.isDisjoint(with: cookedWords), !wordSet.isDisjoint(with: cookedWords.union(["casseroled"])) {
+            return false
+        }
+        return wordSet.intersection(penalizedWords).subtracting(nameTokens).isEmpty
+    }
+
+    /// Words of a database description; "roasted/baked" counts as two words.
+    static func descriptionWords(_ description: String) -> [String] {
+        TextMatching.tokens(description)
+            .flatMap { $0.split(separator: "/").map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: ".")) } }
+            .filter { !$0.isEmpty }
+    }
+
+    /// European matches first (up to six), then USDA, then any remaining European matches.
+    public static func europeanFirst(_ european: [FoodCandidate], _ usda: [FoodCandidate], limit: Int) -> [FoodCandidate] {
+        var seen = Set<String>()
+        let merged = Array(european.prefix(6)) + usda + european.dropFirst(6)
+        return Array(merged.filter { seen.insert($0.description.lowercased()).inserted }.prefix(limit))
+    }
+
     /// Re-ranks database hits: entries matching every term first, then prefer raw/plain entries unless the
     /// ingredient says cooked, and entries whose leading words follow the search terms.
-    public static func rerank(_ hits: [FoodCandidate], ingredientName: String, fullMatchIDs: Set<Int> = []) -> [FoodCandidate] {
+    public static func rerank(_ hits: [FoodCandidate], ingredientName: String, fullMatchIDs: Set<Int> = [],
+                              searchTerms givenTerms: [String]? = nil) -> [FoodCandidate] {
         let nameTokens = Set(TextMatching.tokens(ingredientName))
         let wantsCooked = !nameTokens.isDisjoint(with: cookedWords)
-        let searchTerms = terms(for: ingredientName)
+        let searchTerms = givenTerms ?? terms(for: ingredientName)
         return hits.enumerated().map { offset, hit -> (FoodCandidate, Double) in
-            let words = Set(TextMatching.tokens(hit.description))
+            let words = Set(descriptionWords(hit.description))
             var score = -Double(offset) * 0.1                   // full-text rank as a weak base
             if fullMatchIDs.contains(hit.fdcID) { score += 2 }
             if !wantsCooked {

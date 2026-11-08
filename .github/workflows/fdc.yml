@@ -1,6 +1,6 @@
 name: Build FDC database
 
-# Manual trigger: downloads USDA FoodData Central (Foundation Foods + SR Legacy CSVs, public domain),
+# Manual trigger: downloads Ciqual 2025 (FR), CoFID 2021 (UK) and USDA FoodData Central,
 # builds App/Resources/fdc.sqlite on a Linux runner, commits it, then starts the Build workflow
 # (pushes made with GITHUB_TOKEN don't trigger workflows by themselves).
 on:
@@ -18,6 +18,9 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
 
+      - name: Install openpyxl (reads the CoFID workbook)
+        run: python3 -m pip install --quiet openpyxl
+
       - name: Build fdc.sqlite
         run: python3 tools/build_fdc.py --out App/Resources/fdc.sqlite
 
@@ -29,7 +32,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Database unchanged"
           else
-            git commit -m "Update fdc.sqlite (USDA FoodData Central)"
+            git commit -m "Update fdc.sqlite (Ciqual + CoFID + USDA FoodData Central)"
             git push
           fi
 

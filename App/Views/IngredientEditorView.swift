@@ -73,7 +73,7 @@ struct IngredientEditorView: View {
                             Text(foodDescription ?? "No match — not counted")
                                 .foregroundStyle(foodDescription == nil ? .orange : .primary)
                             if let fdcID {
-                                Text("USDA FoodData Central #\(fdcID)")
+                                Text(fdcID < 0 ? "My foods" : "\(FoodSources.name(forDataType: services.food(id: fdcID)?.dataType)) #\(fdcID)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

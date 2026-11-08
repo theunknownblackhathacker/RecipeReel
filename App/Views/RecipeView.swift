@@ -161,7 +161,7 @@ struct RecipeView: View {
             }
 
             Section {
-                Text("Macros are estimates from USDA FoodData Central and depend on the matched foods and amounts. Steps come from the video and its caption unless marked as suggested or imported.")
+                Text("Macros are estimates from European food tables (Ciqual, CoFID) and USDA FoodData Central, and depend on the matched foods and amounts. Carbs exclude fibre, as on EU labels. Steps come from the video and its caption unless marked as suggested or imported.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

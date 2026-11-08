@@ -38,7 +38,13 @@ struct AISettingsView: View {
             } header: {
                 Text("Nutrition data")
             } footer: {
-                Text("USDA FoodData Central is built in. When an ingredient isn't found there, RecipeReel searches Open Food Facts (free, online) and saves what it picks to My foods. Only the ingredient name is sent.")
+                Text("Built in: Ciqual (France) and CoFID (UK), preferred, with USDA FoodData Central for the rest. Carbs exclude fibre, as on EU labels. When an ingredient isn't found, RecipeReel searches Open Food Facts (products sold in Greece first) and saves what it picks to My foods. Only the ingredient name is sent.")
+            }
+
+            Section("Data sources") {
+                ForEach(FoodSources.credits, id: \.self) { line in
+                    Text(line).font(.footnote).foregroundStyle(.secondary)
+                }
             }
 
             if settings.engine == .cloud {

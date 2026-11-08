@@ -1,9 +1,10 @@
 import Foundation
 
-/// Nutrients per 100 g of a food, from USDA FoodData Central. Nil = not reported.
+/// Nutrients per 100 g of a food. Carbohydrate is *available* carbohydrate (fibre not included), as on EU
+/// labels and in Ciqual/CoFID; USDA values are converted when the database is built. Nil = not reported.
 public struct FoodNutrients: Codable, Sendable, Equatable {
     public var kcal: Double?
-    /// "1008", "2048", "2047", "estimated" (4/9/4 from macros) or "missing".
+    /// "ciqual", "cofid", USDA "1008", "2048", "2047", "estimated" (from macros) or "missing".
     public var kcalSource: String
     public var protein: Double?
     public var fat: Double?
@@ -21,6 +22,28 @@ public struct FoodNutrients: Codable, Sendable, Equatable {
         self.fiber = fiber
         self.sugar = sugar
     }
+}
+
+/// Names of the food tables for the app, and their credits (both European licences require attribution).
+public enum FoodSources {
+    public static func name(forDataType dataType: String?) -> String {
+        switch dataType {
+        case "ciqual": "Ciqual (France)"
+        case "cofid": "CoFID (UK)"
+        case "openFoodFacts": "Open Food Facts"
+        case "label", "manual", "custom": "My foods"
+        default: "USDA"
+        }
+    }
+
+    public static func isEuropean(_ dataType: String?) -> Bool { dataType == "ciqual" || dataType == "cofid" }
+
+    public static let credits: [String] = [
+        "Ciqual 2025 — French food composition table, © ANSES. Licence Ouverte / Open Licence 2.0 (Etalab). doi:10.57745/RDMHWY",
+        "McCance and Widdowson's Composition of Foods Integrated Dataset 2021 (CoFID, UK). Contains public sector information licensed under the Open Government Licence v3.0.",
+        "USDA FoodData Central (Foundation Foods, SR Legacy, FNDDS) — public domain (CC0).",
+        "Open Food Facts (online lookups and barcodes) — Open Database License (ODbL)."
+    ]
 }
 
 /// A household measure for a food, e.g. "1 cup, chopped" = 160 g.

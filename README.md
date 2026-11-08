@@ -21,7 +21,7 @@ ingredient list, cooking steps and macros — entirely on-device, free to run.
 - Optional: **your own API key** (Settings → AI): Claude (Anthropic) or any OpenAI-compatible provider
   (OpenAI, Google Gemini, OpenRouter, …). The key is pasted in the app and stored only in the iPhone's
   Keychain — it is never in this repo, the builds or exported logs. Only recipe text (caption, transcript,
-  on-screen text) is sent; the video stays on the phone. Macros always come from the bundled USDA data.
+  on-screen text) is sent; the video stays on the phone. Macros always come from the bundled food tables.
 
 ## Layout
 
@@ -38,7 +38,20 @@ ingredient list, cooking steps and macros — entirely on-device, free to run.
 
 ## Data
 
-Nutrition data: USDA FoodData Central — Foundation Foods, SR Legacy and FNDDS survey foods (public domain, CC0),
-bundled as `App/Resources/fdc.sqlite` by the **Build FDC database** workflow. Missing or branded products can come
-from [Open Food Facts](https://world.openfoodfacts.org) (ODbL; barcode scan or name search, online) or be typed
-from a label; these are saved on the phone as "My foods".
+Nutrition data is bundled as `App/Resources/fdc.sqlite` by the **Build FDC database** workflow
+(`tools/build_fdc.py`, `tools/eu_foods.py`). European tables are searched first; USDA fills the gaps.
+Carbohydrate is stored EU-style (available carbohydrate, fibre excluded) for every food.
+
+- **Ciqual 2025** — French food composition table, © ANSES, [Licence Ouverte / Open Licence 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)
+  ([doi:10.57745/RDMHWY](https://doi.org/10.57745/RDMHWY)).
+- **CoFID 2021** — McCance and Widdowson's Composition of Foods Integrated Dataset (UK). Contains public sector
+  information licensed under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+- **USDA FoodData Central** — Foundation Foods, SR Legacy and FNDDS survey foods (public domain, CC0).
+
+Ciqual and CoFID have no household measures, so each European food borrows the cup/spoon/piece weights of a
+closely matching USDA food. Values in the bundled database are derived from these sources (selected columns,
+fibre-free carbohydrate for USDA foods); see `tools/` for exactly how.
+
+Missing or branded products can come from [Open Food Facts](https://world.openfoodfacts.org) (ODbL; barcode scan
+or name search, online, products sold in Greece first) or be typed from a label; these are saved on the phone as
+"My foods". The app lists these credits under Settings → Nutrition data → Data sources.

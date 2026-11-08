@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Builds fdc.sqlite (bundled, read-only) from USDA FoodData Central CSV downloads.
+"""Builds fdc.sqlite (bundled, read-only): European food tables first, USDA as the fallback.
 
-Data: Foundation Foods (latest usable) + SR Legacy (2018, final) + FNDDS survey foods (everyday foods and
-dishes "as eaten"). Public domain (CC0), USDA FoodData Central.
+Data:
+- Ciqual 2025 (ANSES, France) — Licence Ouverte 2.0; CoFID 2021 (UK) — Open Government Licence v3.0.
+  See tools/eu_foods.py. data_type 'ciqual' / 'cofid'.
+- USDA FoodData Central: Foundation Foods (latest usable) + SR Legacy (2018, final) + FNDDS survey foods.
+  Public domain (CC0).
+
+Carbohydrate is stored EU-style for every food: *available* carbohydrate, fibre not included (USDA's
+"carbohydrate by difference" includes fibre, so fibre is subtracted for USDA foods).
 
 Schema:
   food(fdc_id PK, description, data_type, category)
@@ -24,6 +30,8 @@ import sys
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
+
+import eu_foods
 
 PAGE_URL = "https://fdc.nal.usda.gov/download-datasets"
 BASE_URL = "https://fdc.nal.usda.gov/fdc-datasets/"
@@ -230,7 +238,14 @@ def load_dataset(zf, label):
 def macro_row(fid, n):
     protein = n.get(PROTEIN)
     fat = n.get(FAT)
-    carbs = n.get(CARBS_BY_DIFFERENCE, n.get(CARBS_BY_SUMMATION))
+    fiber = n.get(FIBER)
+    if CARBS_BY_DIFFERENCE in n:
+        # By difference includes fibre; EU tables and labels don't.
+        carbs = n[CARBS_BY_DIFFERENCE]
+        if fiber is not None:
+            carbs = max(0.0, carbs - fiber)
+    else:
+        carbs = n.get(CARBS_BY_SUMMATION)   # sum of sugars and starch: already without fibre
     if ENERGY_KCAL in n:
         kcal, source = n[ENERGY_KCAL], "1008"
     elif ENERGY_ATWATER_SPECIFIC in n:
@@ -241,7 +256,7 @@ def macro_row(fid, n):
         kcal, source = 4 * protein + 9 * fat + 4 * carbs, "estimated"
     else:
         kcal, source = None, "missing"
-    return (fid, kcal, source, protein, fat, carbs, n.get(FIBER), n.get(SUGARS_TOTAL, n.get(SUGARS_TOTAL_NLEA)))
+    return (fid, kcal, source, protein, fat, carbs, fiber, n.get(SUGARS_TOTAL, n.get(SUGARS_TOTAL_NLEA)))
 
 
 def build(out_path):
@@ -320,12 +335,35 @@ def build(out_path):
                    [macro_row(fid, all_nutrients[fid]) for fid in kept])
     kept_set = set(kept)
     db.executemany("INSERT INTO portion VALUES (?, ?, ?, ?)", [p for p in all_portions if p[0] in kept_set])
+
+    # European tables (preferred by the app's search). A failed download keeps the USDA-only database.
+    eu_ids, eu_files = [], {}
+    for label, loader, data_type in (("Ciqual", eu_foods.load_ciqual, "ciqual"),
+                                     ("CoFID", eu_foods.load_cofid, "cofid")):
+        try:
+            foods, macros, version = loader(notice)
+        except Exception as exc:  # noqa: BLE001
+            warning(f"{label} skipped: {exc}")
+            eu_files[data_type] = "skipped"
+            continue
+        db.executemany("INSERT INTO food VALUES (?, ?, ?, ?)",
+                       [(fid, name, data_type, category) for fid, (name, category) in foods.items()])
+        db.executemany("INSERT INTO macro VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                       [(fid, *macros[fid]) for fid in foods])
+        eu_ids += list(foods)
+        eu_files[data_type] = version
+
     db.execute("INSERT INTO food_fts (description, fdc_id) SELECT description, fdc_id FROM food")
+    eu_foods.borrow_portions(db, eu_ids, notice)
     built = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     db.executemany("INSERT INTO meta VALUES (?, ?)", [
         ("foundation_file", f_name if f_name in used else "skipped"), ("sr_legacy_file", s_name),
         ("survey_file", survey_name), ("built_at", built),
-        ("source", "USDA FoodData Central (public domain, CC0)"), ("schema_version", "1"),
+        ("ciqual_file", eu_files.get("ciqual", "skipped")), ("cofid_file", eu_files.get("cofid", "skipped")),
+        ("carbs_basis", "available carbohydrate (fibre excluded, EU style)"),
+        ("source", "Ciqual 2025 (ANSES, Licence Ouverte 2.0); CoFID 2021 (UK, Open Government Licence v3.0); "
+                   "USDA FoodData Central (public domain, CC0)"),
+        ("schema_version", "2"),
     ])
     db.commit()
     db.execute("INSERT INTO food_fts(food_fts) VALUES ('optimize')")
@@ -351,6 +389,13 @@ def report(out_path):
     hits = db.execute("""SELECT f.description FROM food_fts JOIN food f ON f.fdc_id = food_fts.fdc_id
                          WHERE food_fts MATCH '"rolled"* AND "oat"*' ORDER BY bm25(food_fts) LIMIT 3""").fetchall()
     notice(f"search 'rolled oats' -> {[h[0] for h in hits]}")
+    for name in ("Feta or Feta-type cheese, 100% from ewe's milk", "Cheese, Feta", "Olive oil, extra virgin",
+                 "Yogurt, Greek style, plain"):
+        row = db.execute("""SELECT f.fdc_id, f.description, f.data_type, m.kcal, m.protein, m.fat, m.carbs, m.fiber
+                            FROM food f JOIN macro m USING (fdc_id) WHERE f.description = ?""", (name,)).fetchone()
+        portions = db.execute("SELECT amount, unit_text, grams FROM portion WHERE fdc_id = ?",
+                              (row[0] if row else -1,)).fetchall()
+        notice(f"EU sample {row} measures {portions[:3]}")
     for word in ("mirin", "rice wine", "teriyaki", "hummus", "tzatziki"):
         rows = db.execute("SELECT description FROM food WHERE description LIKE ? LIMIT 4", (f"%{word}%",)).fetchall()
         notice(f"contains '{word}': {[r[0] for r in rows]}")

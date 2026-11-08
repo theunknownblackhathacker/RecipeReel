@@ -66,10 +66,12 @@ struct FoodPickerView: View {
                         .foregroundStyle(.orange)
                 }
                 ForEach(usda) { candidate in
-                    foodRow(candidate.description, detail: nil) { pick(candidate) }
+                    foodRow(candidate.description, detail: candidate.sourceName) { pick(candidate) }
                 }
             } header: {
-                Text("USDA FoodData Central")
+                Text("Food tables")
+            } footer: {
+                Text("European tables (Ciqual, France; CoFID, UK) come first; USDA fills the gaps.")
             }
 
             Section {
@@ -100,7 +102,7 @@ struct FoodPickerView: View {
             } header: {
                 Text("Open Food Facts (online)")
             } footer: {
-                Text("Packaged products from shops worldwide, added by volunteers — check the values against your pack. USDA data is public domain; Open Food Facts is ODbL.")
+                Text("Packaged products, products sold in Greece first, added by volunteers — check the values against your pack. Open Food Facts is ODbL.")
             }
         }
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search foods")

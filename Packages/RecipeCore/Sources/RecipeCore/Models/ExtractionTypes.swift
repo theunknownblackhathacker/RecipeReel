@@ -78,12 +78,18 @@ public struct RawMethod: Codable, Sendable, Equatable {
 public struct FoodCandidate: Codable, Sendable, Equatable, Identifiable {
     public var fdcID: Int
     public var description: String
+    /// Database table: "ciqual", "cofid", or a USDA data type. Nil for older saved results.
+    public var dataType: String?
     public var id: Int { fdcID }
 
-    public init(fdcID: Int, description: String) {
+    public init(fdcID: Int, description: String, dataType: String? = nil) {
         self.fdcID = fdcID
         self.description = description
+        self.dataType = dataType
     }
+
+    /// "Ciqual (France)", "CoFID (UK)" or "USDA".
+    public var sourceName: String { FoodSources.name(forDataType: dataType) }
 }
 
 // MARK: - Cleaned results (after Swift post-processing)
