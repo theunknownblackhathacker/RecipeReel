@@ -1,0 +1,200 @@
+◇ Test keepsPartsAndDropsReferences() started.
+◇ Test searchReturnsSensibleFirstHits() started.
+◇ Test oliveOil() started.
+◇ Test matchingInsidePipelineUsesDatabaseCandidates() started.
+◇ Test noteHelpsFindTheRightFood() started.
+◇ Test foodRecordIncludesNutrientsAndPortions() started.
+◇ Test searchFindsAndRanksFixtureFoods() started.
+◇ Test newSynonyms() started.
+◇ Test searchTermsUseSynonymsAndDropPrepWords() started.
+◇ Test signingServiceGroupsAreSortedAndWildcardsDropped() started.
+◇ Test recipeReelNamedGroupsBeforeOthers() started.
+◇ Test preferredComesFirstWhenProfileHasIt() started.
+◇ Test noProfileGroupsMeansPreferredOnly() started.
+◇ Test usesFirstGroupIOSGrants() started.
+◇ Test selectedTextBecomesSteps() started.
+◇ Test howToStepsInsideGraph() started.
+◇ Test reportsWhenNoGroupIsGranted() started.
+◇ Test singleStringWithBreaksAndNumbers() started.
+◇ Test noRecipeMeansNil() started.
+◇ Test microdataFallback() started.
+◇ Test cloudChefReplyIsDecoded() started.
+◇ Test sectionsAndPlainStrings() started.
+◇ Test picksBiggestChangesInOrder() started.
+◇ Test fillsEvenlyWhenFewCuts() started.
+◇ Test validateKeepsGoodEditsAndDropsBadOnes() started.
+◇ Test macrosComeFromTheAppNotTheModel() started.
+◇ Test shortVideoKeepsEverything() started.
+◇ Test thumbnailDifference() started.
+◇ Test applyFindsTargetsByNameWhenTheListChanged() started.
+◇ Test promptListsIdsAndKeepsRecentTurns() started.
+◇ Test proposalSurvivesStorage() started.
+◇ Test applyEditsIngredientsAndPlacesSteps() started.
+◇ Test inventedQuoteIsRejected() started.
+◇ Test quoteFoundEvenWithSmallDifferences() started.
+◇ Test normalizeFoldsCaseAccentsAndPunctuation() started.
+◇ Test bagOfWordsIsNotEnough() started.
+✔ Test emptyTimeline() passed after 0.278 seconds.
+✔ Test chunksRespectLimitAndOrder() passed after 0.278 seconds.
+✔ Test overlongLineIsSplitOnWords() passed after 0.278 seconds.
+✔ Test captionFirstThenTimeOrderedScreenAndVoice() passed after 0.278 seconds.
+✔ Test servingsBelowOneAreTreatedAsOne() passed after 0.278 seconds.
+✔ Test recipeTotalsAndPerServing() passed after 0.278 seconds.
+✔ Test perIngredientMacros() passed after 0.278 seconds.
+✔ Test piecesPreferMediumThenLarge() passed after 0.278 seconds.
+✔ Test missingEnergyIsEstimatedFromMacros() passed after 0.278 seconds.
+✔ Test visualStepsMustCiteRealFramesAndStatedTimes() passed after 0.278 seconds.
+✔ Test matchingPortionIsUsed() passed after 0.278 seconds.
+✔ Test textMethodWinsAndPicturesAreSkipped() passed after 0.278 seconds.
+✔ Test volumeUsesDensityWhenNoMatchingPortion() passed after 0.278 seconds.
+✔ Test portionTextClassification() passed after 0.278 seconds.
+✔ Test massUnitsAreExact() passed after 0.278 seconds.
+✔ Test uncountableLines() passed after 0.278 seconds.
+✔ Test listShownTwiceIsKeptOnce() passed after 0.278 seconds.
+✔ Test mergesRepeatsAndNearDuplicatesKeepingFirstTime() passed after 0.278 seconds.
+✔ Test volumeWithoutAnyDataIsAssumedWater() passed after 0.278 seconds.
+✔ Test pipelineLooksAtPicturesOnlyWhenTextHasNoMethod() passed after 0.279 seconds.
+✔ Test statedDurations() passed after 0.279 seconds.
+✔ Test numbersAreParsed() passed after 0.278 seconds.
+✔ Test minutesMustBeStated() passed after 0.278 seconds.
+✔ Test ingredientsAreCleanedAndMergedNotSummed() passed after 0.278 seconds.
+✔ Test missingRootMeansNoItems() passed after 0.278 seconds.
+✔ Test moveAllTransfersItemsBetweenStores() passed after 0.278 seconds.
+✔ Test halfWrittenStagingFoldersAreIgnored() passed after 0.278 seconds.
+✔ Test emptyCaptionIsRejected() passed after 0.278 seconds.
+✔ Test addVideoCopiesFileAndWritesManifest() passed after 0.278 seconds.
+✔ Test linkAndCaptionItems() passed after 0.278 seconds.
+✔ Test methodVocabulary() passed after 0.278 seconds.
+✔ Test updateCaptionAndDelete() passed after 0.278 seconds.
+✔ Test creditsNameEveryLicence() passed after 0.278 seconds.
+✔ Test addVideoCanMoveTheSource() passed after 0.278 seconds.
+✔ Test europeanFoodsHaveBorrowedMeasures() passed after 0.278 seconds.
+✔ Test pickerSearchListsEuropeanFirst() passed after 0.278 seconds.
+✔ Test failuresAreRecordedNotThrown() passed after 0.278 seconds.
+✔ Test europeanFoodsComeFirst() passed after 0.278 seconds.
+✔ Test case3InventedStepsAreAllDropped() passed after 0.278 seconds.
+✔ Test aiUnavailableSkipsExtraction() passed after 0.278 seconds.
+✔ Test perfectOutputPassesSelfTestCase1() passed after 0.278 seconds.
+✔ Test choiceParsing() passed after 0.278 seconds.
+✔ Test noMethodFlagMeansNoSteps() passed after 0.278 seconds.
+✔ Test spokenFractionsAndSplitDecimalsAreSupported() passed after 0.278 seconds.
+✔ Test case2InventedTimeIsRemovedButRealStepsKept() passed after 0.278 seconds.
+✔ Test garbageReturnsNil() passed after 0.278 seconds.
+✔ Test requestShapeAndParsing() passed after 0.278 seconds.
+✔ Test cutOffAnswerIsAnError() passed after 0.278 seconds.
+✔ Test spokenActionsCount() passed after 0.278 seconds.
+✔ Test parsesExplicitProfileWithAppGroups() passed after 0.278 seconds.
+✔ Test cookedEuropeanFoodsDontJumpTheQueue() passed after 0.278 seconds.
+✔ Test authErrorIsNotRetried() passed after 0.278 seconds.
+✔ Test detectsWildcardProfile() passed after 0.278 seconds.
+✔ Test labelNeverContainsKey() passed after 0.278 seconds.
+✔ Test rememberedOwnFoodIsReused() passed after 0.278 seconds.
+✔ Test fallsBackToJSONModeWhenSchemaUnsupported() passed after 0.278 seconds.
+✔ Test configValidation() passed after 0.278 seconds.
+✔ Test findsDurations() passed after 0.278 seconds.
+✔ Test anthropicSendsImageBlocks() passed after 0.278 seconds.
+✔ Test missingFoodIsFoundOnlineAndSaved() passed after 0.278 seconds.
+✔ Test requestShapeStepsAndFoodChoice() passed after 0.278 seconds.
+✔ Test openAISendsImageURLParts() passed after 0.278 seconds.
+✔ Test wordGroupingForFallbackRecognizer() passed after 0.278 seconds.
+✔ Test garbledTitleOverlaysAreDropped() passed after 0.278 seconds.
+✔ Test visualRequestCarriesFramesAndSchema() passed after 0.278 seconds.
+✔ Test webStepsGetTimersAndIngredientLinks() passed after 0.278 seconds.
+✔ Test parsesCommonSpellings() passed after 0.278 seconds.
+✔ Test differentInstructionsAreKept() passed after 0.278 seconds.
+✔ Test suggestionsAreLowConfidenceAndCleaned() passed after 0.284 seconds.
+✔ Test appendsAndReadsLines() passed after 0.284 seconds.
+✔ Test perServingStaysTheSameWhenScaling() passed after 0.284 seconds.
+✔ Test matchingByName() passed after 0.284 seconds.
+✔ Test clearRemovesEverything() passed after 0.284 seconds.
+✔ Test addsWithNegativeIDsAndPersists() passed after 0.284 seconds.
+✔ Test factorAndRounding() passed after 0.284 seconds.
+✔ Test recordWorksWithTheCalculator() passed after 0.284 seconds.
+✔ Test inventedStepsAreStillDroppedWithCloudModel() passed after 0.284 seconds.
+✔ Test searchAndBarcodeRequests() passed after 0.284 seconds.
+✔ Test parsesProductWithStringsAndKilojoules() passed after 0.284 seconds.
+✔ Test productsWithoutFullMacrosAreSkipped() passed after 0.284 seconds.
+✔ Test cloudSchemaAsksForGroup() passed after 0.284 seconds.
+✔ Test uniqueNamesKeepOrder() passed after 0.284 seconds.
+✔ Test groupNamesAreCleaned() passed after 0.284 seconds.
+✔ Test singleHeadingOverEverythingIsDropped() passed after 0.284 seconds.
+✔ Test recipesWithoutHeadingsAreUnchanged() passed after 0.284 seconds.
+✔ Test selfTestChecksParts() passed after 0.284 seconds.
+✔ Test oneHeadingPerLineIsDropped() passed after 0.284 seconds.
+✔ Test wholeRawEgg() passed after 0.284 seconds.
+✔ Test keepsPartsAndDropsReferences() passed after 0.284 seconds.
+✔ Test oliveOil() passed after 0.284 seconds.
+✔ Test trimsWhenTooLarge() passed after 0.285 seconds.
+✔ Test noteHelpsFindTheRightFood() passed after 0.284 seconds.
+✔ Test searchTermsUseSynonymsAndDropPrepWords() passed after 0.284 seconds.
+✔ Test signingServiceGroupsAreSortedAndWildcardsDropped() passed after 0.284 seconds.
+✔ Test foodRecordIncludesNutrientsAndPortions() passed after 0.284 seconds.
+✔ Test recipeReelNamedGroupsBeforeOthers() passed after 0.284 seconds.
+✔ Test newSynonyms() passed after 0.284 seconds.
+✔ Test preferredComesFirstWhenProfileHasIt() passed after 0.284 seconds.
+✔ Test selectedTextBecomesSteps() passed after 0.284 seconds.
+✔ Test noProfileGroupsMeansPreferredOnly() passed after 0.284 seconds.
+✔ Test usesFirstGroupIOSGrants() passed after 0.284 seconds.
+✔ Test searchReturnsSensibleFirstHits() passed after 0.284 seconds.
+✔ Test singleStringWithBreaksAndNumbers() passed after 0.284 seconds.
+✔ Test reportsWhenNoGroupIsGranted() passed after 0.284 seconds.
+✔ Test noRecipeMeansNil() passed after 0.284 seconds.
+✔ Test microdataFallback() passed after 0.284 seconds.
+✔ Test howToStepsInsideGraph() passed after 0.284 seconds.
+✔ Test picksBiggestChangesInOrder() passed after 0.284 seconds.
+✔ Test sectionsAndPlainStrings() passed after 0.284 seconds.
+✔ Test macrosComeFromTheAppNotTheModel() passed after 0.284 seconds.
+✔ Test validateKeepsGoodEditsAndDropsBadOnes() passed after 0.284 seconds.
+✔ Test fillsEvenlyWhenFewCuts() passed after 0.284 seconds.
+✔ Test thumbnailDifference() passed after 0.284 seconds.
+✔ Test shortVideoKeepsEverything() passed after 0.284 seconds.
+✔ Test applyFindsTargetsByNameWhenTheListChanged() passed after 0.284 seconds.
+✔ Test cloudChefReplyIsDecoded() passed after 0.284 seconds.
+✔ Test applyEditsIngredientsAndPlacesSteps() passed after 0.284 seconds.
+✔ Test promptListsIdsAndKeepsRecentTurns() passed after 0.284 seconds.
+✔ Test proposalSurvivesStorage() passed after 0.284 seconds.
+✔ Test inventedQuoteIsRejected() passed after 0.276 seconds.
+✔ Test bagOfWordsIsNotEnough() passed after 0.276 seconds.
+✔ Test normalizeFoldsCaseAccentsAndPunctuation() passed after 0.276 seconds.
+✔ Test quoteFoundEvenWithSmallDifferences() passed after 0.276 seconds.
+✔ Test searchFindsAndRanksFixtureFoods() passed after 0.285 seconds.
+✔ Suite "SourceTimeline" passed after 0.289 seconds.
+✔ Suite "NutritionCalculator" passed after 0.289 seconds.
+✔ Suite "Steps from the video's pictures" passed after 0.289 seconds.
+✔ Suite "OCRDeduper" passed after 0.289 seconds.
+✔ Suite "ExtractionPostProcessor" passed after 0.289 seconds.
+✔ Suite "UnitConverter" passed after 0.289 seconds.
+✔ Suite "InboxStore" passed after 0.289 seconds.
+✔ Suite "European food tables first" passed after 0.289 seconds.
+✔ Suite "Step checks with spoken amounts" passed after 0.289 seconds.
+✔ Suite "ProvisioningInfo" passed after 0.289 seconds.
+✔ Suite "Cloud AI — OpenAI-compatible" passed after 0.289 seconds.
+✔ Suite "Cloud images" passed after 0.289 seconds.
+✔ Suite "DurationParser" passed after 0.289 seconds.
+✔ Suite "Pipeline with mocks" passed after 0.289 seconds.
+✔ Suite "CanonicalUnit" passed after 0.289 seconds.
+✔ Suite "Scaling servings" passed after 0.289 seconds.
+✔ Suite "Cloud AI — full pipeline" passed after 0.289 seconds.
+✔ Suite "My foods" passed after 0.289 seconds.
+✔ Suite "Open Food Facts" passed after 0.289 seconds.
+✔ Suite "Suggested and web steps" passed after 0.289 seconds.
+✔ Suite "Ingredient groups (parts of a recipe)" passed after 0.289 seconds.
+✔ Test ownFoodsAreOfferedFirst() passed after 0.287 seconds.
+✔ Suite "USDA values" passed after 0.289 seconds.
+✔ Test noteFindsRiceInPipeline() passed after 0.287 seconds.
+✔ Test concurrentWritesAreAllKept() passed after 0.286 seconds.
+✔ Suite "SharedContainer" passed after 0.289 seconds.
+✔ Suite "WebRecipeParser" passed after 0.289 seconds.
+✔ Suite "Key frame selection" passed after 0.289 seconds.
+✔ Suite "Ask the chef" passed after 0.289 seconds.
+✔ Test matchingInsidePipelineUsesDatabaseCandidates() passed after 0.286 seconds.
+✔ Suite "AppGroup" passed after 0.289 seconds.
+✔ Suite "TextMatching" passed after 0.289 seconds.
+✔ Suite "Matching with own and online foods" passed after 0.290 seconds.
+✔ Suite "FDCDatabase" passed after 0.289 seconds.
+✔ Suite "DiagnosticsLog" passed after 0.290 seconds.
+✔ Test matchesRunInParallelAndKeepOrder() passed after 0.442 seconds.
+✔ Suite "Pipeline fixes" passed after 0.445 seconds.
+✔ Test overloadIsRetriedOnce() passed after 3.239 seconds.
+✔ Suite "Cloud AI — Anthropic" passed after 3.243 seconds.
+✔ Test run with 130 tests in 33 suites passed after 3.244 seconds.
