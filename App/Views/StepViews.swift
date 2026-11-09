@@ -21,6 +21,11 @@ struct StepRow: View {
                 Text(StepText.highlighted(step.text, names: step.ingredientNames + ingredientNames))
                     .strikethrough(step.isDone)
                     .foregroundStyle(step.isDone ? .secondary : .primary)
+                if step.origin == .chef {
+                    Label("From the chef", systemImage: "bubble.left.and.bubble.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if step.needsReview {
                     Label("Check this step against the video", systemImage: "exclamationmark.circle")
                         .font(.caption)

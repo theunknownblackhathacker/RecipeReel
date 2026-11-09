@@ -4,7 +4,7 @@ import Foundation
 /// Same prompts and same Swift checks as Apple Intelligence: steps must still be grounded in the
 /// video's text, and macros still come only from the USDA database. Only text is sent — caption,
 /// transcript and on-screen text; the video itself never leaves the phone.
-public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, VisualStepExtracting {
+public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, VisualStepExtracting, RecipeChefing {
     let backend: any JSONChatBackend
     let onUsage: @Sendable (TokenUsage) -> Void
 
@@ -97,6 +97,21 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, Vi
         )
     }
 
+    /// "Ask the chef": one reply with optional edits.
+    public func chef(instructions: String, prompt: String) async throws -> RawChefReply {
+        let json = try await call(instructions, prompt, name: "chef_reply", schema: CloudSchemas.chef, maxTokens: 6_000)
+        let decoded = try decode(DecodedChef.self, json)
+        return RawChefReply(
+            reply: decoded.reply,
+            changes: (decoded.changes ?? []).map {
+                RawChefChange(action: $0.action, target: $0.target ?? "", name: $0.name ?? "", quantity: $0.quantity ?? 0,
+                              unit: $0.unit ?? "", note: $0.note ?? "", group: $0.group ?? "", text: $0.text ?? "",
+                              minutes: $0.minutes ?? 0, position: $0.position ?? 0)
+            },
+            rawOutput: json
+        )
+    }
+
     /// Small request to check the key, model and address (Settings → Test connection).
     public func testConnection() async throws {
         let json = try await call("Reply with the word ok.", "ping", name: "ping",
@@ -156,6 +171,23 @@ public struct CloudExtractor: RecipeExtracting, FoodMatching, StepSuggesting, Vi
         }
         let hasInstructions: Bool
         let steps: [Item]
+    }
+
+    struct DecodedChef: Decodable {
+        struct Change: Decodable {
+            let action: String
+            let target: String?
+            let name: String?
+            let quantity: Double?
+            let unit: String?
+            let note: String?
+            let group: String?
+            let text: String?
+            let minutes: Int?
+            let position: Int?
+        }
+        let reply: String
+        let changes: [Change]?
     }
 
     struct DecodedSuggested: Decodable {
@@ -221,6 +253,24 @@ enum CloudSchemas {
                 "confidence": ["type": "string", "enum": confidence]
             ], order: ["sourceQuote", "text", "ingredientsUsed", "minutes", "confidence"])]
         ], order: ["hasInstructions", "steps"])
+    }
+
+    static var chef: [String: Any] {
+        object([
+            "reply": ["type": "string", "description": "Your answer to the user, 2 to 5 sentences"],
+            "changes": ["type": "array", "description": "Edits to apply, empty if none", "items": object([
+                "action": ["type": "string", "enum": Chef.actions],
+                "target": ["type": "string", "description": "Ingredient id (i1…) or step id (s1…), empty for additions"],
+                "name": ["type": "string", "description": "Ingredient name"],
+                "quantity": ["type": "number", "description": "Amount, or servings for set_servings; 0 if none"],
+                "unit": ["type": "string", "enum": CanonicalUnit.allCases.map(\.rawValue) + [""]],
+                "note": ["type": "string", "description": "Preparation note, e.g. finely chopped"],
+                "group": ["type": "string", "description": "Part of the recipe, empty if none"],
+                "text": ["type": "string", "description": "Step text, or the new title for rename_recipe"],
+                "minutes": ["type": "integer", "description": "Step time in minutes, 0 if none"],
+                "position": ["type": "integer", "description": "For add_step: the step number it comes after, 0 for first"]
+            ], order: ["action", "target", "name", "quantity", "unit", "note", "group", "text", "minutes", "position"])]
+        ], order: ["reply", "changes"])
     }
 
     static var suggested: [String: Any] {

@@ -125,6 +125,7 @@ public enum StepOrigin: String, Codable, Sendable {
     case aiSuggested    // written by the on-device model on request (not from the video)
     case web            // imported from a recipe web page the user opened
     case manual         // typed by the user
+    case chef           // written or changed with "Ask the chef" (the user applied it)
 }
 
 @Model

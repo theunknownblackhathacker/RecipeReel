@@ -13,6 +13,41 @@ enum GenConfidence {
     case high, medium, low
 }
 
+@Generable
+enum GenChefAction {
+    case add_ingredient, change_ingredient, remove_ingredient, add_step, change_step, remove_step, rename_recipe, set_servings
+}
+
+@Generable(description: "One edit to the recipe")
+struct GenChefChange {
+    var action: GenChefAction
+    @Guide(description: "Ingredient id (i1, i2…) or step id (s1, s2…); empty for additions")
+    var target: String
+    @Guide(description: "Ingredient name, empty if not an ingredient edit")
+    var name: String
+    @Guide(description: "Amount, or the servings for set_servings; 0 if none")
+    var quantity: Double
+    var unit: GenUnit
+    @Guide(description: "Preparation note, empty if none")
+    var note: String
+    @Guide(description: "Part of the recipe the ingredient belongs to, empty if none")
+    var group: String
+    @Guide(description: "Step text, or the new title for rename_recipe; empty otherwise")
+    var text: String
+    @Guide(description: "Step time in minutes, 0 if none")
+    var minutes: Int
+    @Guide(description: "For add_step: the step number it comes after, 0 for first")
+    var position: Int
+}
+
+@Generable(description: "The chef's answer")
+struct GenChefReply {
+    @Guide(description: "Answer to the user in 2 to 5 sentences")
+    var reply: String
+    @Guide(description: "Edits to apply, empty if none")
+    var changes: [GenChefChange]
+}
+
 @Generable(description: "One ingredient from a recipe")
 struct GenIngredient {
     @Guide(description: "Exact words from the text that mention this ingredient")
@@ -77,7 +112,7 @@ struct GenSuggestedMethod {
 
 /// On-device extraction with Apple's Foundation Models framework.
 /// Every call uses a fresh single-turn session (sessions handle one request at a time).
-public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching, StepSuggesting {
+public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching, StepSuggesting, RecipeChefing {
 
     public init() {}
 
@@ -129,6 +164,21 @@ public struct FoundationModelsExtractor: RecipeExtracting, FoodMatching, StepSug
                 )
             },
             rawOutput: String(describing: method)
+        )
+    }
+
+    public func chef(instructions: String, prompt: String) async throws -> RawChefReply {
+        let session = LanguageModelSession(instructions: instructions)
+        let response = try await session.respond(to: prompt, generating: GenChefReply.self, options: options)
+        let content = response.content
+        return RawChefReply(
+            reply: content.reply,
+            changes: content.changes.map {
+                RawChefChange(action: String(describing: $0.action), target: $0.target, name: $0.name,
+                              quantity: $0.quantity, unit: String(describing: $0.unit), note: $0.note,
+                              group: $0.group, text: $0.text, minutes: $0.minutes, position: $0.position)
+            },
+            rawOutput: String(describing: content)
         )
     }
 

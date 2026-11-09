@@ -21,7 +21,7 @@ struct RecipeReelApp: App {
                     Task { await model.importOpenedFile(url) }
                 }
         }
-        .modelContainer(for: [Recipe.self, Ingredient.self, Step.self])
+        .modelContainer(for: [Recipe.self, Ingredient.self, Step.self, ChefMessage.self])
     }
 }
 

@@ -22,6 +22,7 @@ struct RecipeView: View {
     @State private var suggesting = false
     @State private var confirmReplace: StepSource?
     @State private var stepError: String?
+    @State private var chatting = false
 
     enum StepSource: Identifiable {
         case suggest, web
@@ -171,6 +172,13 @@ struct RecipeView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
+                    chatting = true
+                } label: {
+                    Label("Ask the chef", systemImage: "bubble.left.and.bubble.right")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
                     cooking = true
                 } label: {
                     Label("Cook", systemImage: "frying.pan")
@@ -227,6 +235,9 @@ struct RecipeView: View {
         .sheet(isPresented: $findingOnline) {
             WebStepsImportView(recipe: recipe)
         }
+        .sheet(isPresented: $chatting) {
+            ChefChatView(recipe: recipe)
+        }
         .confirmationDialog("Replace the current steps?", isPresented: Binding(
             get: { confirmReplace != nil },
             set: { if !$0 { confirmReplace = nil } }
@@ -245,6 +256,7 @@ struct RecipeView: View {
         }
         .confirmationDialog("Delete this recipe?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
+                ChefMessage.deleteConversation(of: recipe.id, in: context)
                 context.delete(recipe)
                 try? context.save()
                 dismiss()

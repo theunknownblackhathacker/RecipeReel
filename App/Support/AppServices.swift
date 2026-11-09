@@ -159,6 +159,89 @@ final class AppServices {
         }
     }
 
+    // MARK: - Ask the chef
+
+    struct ChefAnswer {
+        let reply: String
+        let proposal: ChefProposal
+        /// "Per serving: 571 → 498 kcal …" (empty when nothing would change).
+        let preview: String
+    }
+
+    /// One turn of a recipe's chef conversation with the chosen engine. Proposed edits are checked,
+    /// new ingredients get a food match, and the macros before/after are worked out here.
+    func askChef(recipe: Recipe, history: [ChefTurn], message: String) async throws -> ChefAnswer {
+        refreshAvailability()
+        if let problem = extractionProblem { throw SuggestError.unavailable(problem) }
+        let snapshot = ChefRecipe(recipe)
+        let before = Chef.perServing(snapshot) { self.food(id: $0) }
+        let onDevice = ai.engine == .onDevice
+        let chef: any RecipeChefing = onDevice ? FoundationModelsExtractor() : try ai.makeCloudExtractor()
+        // The on-device model has a small context window (about 4,096 tokens).
+        let limit = onDevice ? 6_000 : 60_000
+        AppLog.shared.log("chef", "Asking \(engineLabel) about “\(recipe.title)”: \(message.prefix(200))")
+        let raw: RawChefReply
+        do {
+            raw = try await chef.chef(instructions: Chef.instructions,
+                                      prompt: Chef.prompt(recipe: snapshot, macros: Chef.macroLine(before), history: history,
+                                                          message: message, maxCharacters: limit))
+        } catch let error where onDevice && !history.isEmpty {
+            AppLog.shared.log("chef", "Retrying without earlier messages: \(error.localizedDescription)")
+            raw = try await chef.chef(instructions: Chef.instructions,
+                                      prompt: Chef.prompt(recipe: snapshot, macros: Chef.macroLine(before), history: [],
+                                                          message: message, maxCharacters: limit))
+        }
+        var proposal = Chef.validate(raw.changes, recipe: snapshot)
+        for index in proposal.changes.indices where proposal.changes[index].needsFoodMatch {
+            switch proposal.changes[index] {
+            case .addIngredient(var edit):
+                await fillMatch(&edit)
+                proposal.changes[index] = .addIngredient(edit)
+            case .changeIngredient(let key, let oldName, var edit):
+                await fillMatch(&edit)
+                proposal.changes[index] = .changeIngredient(key: key, oldName: oldName, edit)
+            default:
+                break
+            }
+        }
+        let after = Chef.perServing(Chef.apply(proposal.changes, to: snapshot)) { self.food(id: $0) }
+        let preview = proposal.isEmpty ? "" : Chef.previewLine(before: before, after: after)
+        AppLog.shared.log("chef", "Reply: \(raw.changes.count) edits proposed, \(proposal.changes.count) kept" +
+                          (proposal.dropped.isEmpty ? "" : " (dropped: \(proposal.dropped.joined(separator: "; ")))") +
+                          ". Raw: \(raw.rawOutput.prefix(1500))")
+        return ChefAnswer(reply: raw.reply, proposal: proposal, preview: preview)
+    }
+
+    private func fillMatch(_ edit: inout IngredientEdit) async {
+        let match = await matchFood(name: edit.name, note: edit.note)
+        edit.fdcID = match.id
+        edit.foodDescription = match.description
+        edit.matchStatus = match.status
+    }
+
+    /// Food match for one ingredient name: remembered choice → My foods → database search, with the AI
+    /// picking among the database candidates when the engine is available (first candidate otherwise).
+    func matchFood(name: String, note: String) async -> (id: Int?, description: String?, status: MatchStatus) {
+        if let id = rememberedMatches[TextMatching.normalize(name)], let food = food(id: id) {
+            return (id, food.description, .remembered)
+        }
+        if let custom = customFoods.matching(ingredientName: name).first {
+            return (custom.id, custom.record.description, .custom)
+        }
+        guard let database else { return (nil, nil, .unmatched) }
+        let candidates = database.search(ingredientName: name, note: note, limit: 10)
+        guard !candidates.isEmpty else { return (nil, nil, .unmatched) }
+        var pick = 0
+        if extractionProblem == nil {
+            let matcher: (any FoodMatching)? = ai.engine == .cloud ? try? ai.makeCloudExtractor() : FoundationModelsExtractor()
+            if let matcher, let result = try? await matcher.pickFood(ingredient: name, detail: note, candidates: candidates) {
+                guard let index = result.index, candidates.indices.contains(index) else { return (nil, nil, .unmatched) }
+                pick = index
+            }
+        }
+        return (candidates[pick].fdcID, candidates[pick].description, .matched)
+    }
+
     func food(id: Int?) -> FoodRecord? {
         guard let id else { return nil }
         if id < 0 { return customFoods.food(id: id)?.record }

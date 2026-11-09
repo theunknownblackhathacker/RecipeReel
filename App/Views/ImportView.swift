@@ -24,7 +24,10 @@ struct ImportView: View {
                         }
                     }
                     .onDelete { offsets in
-                        for index in offsets { context.delete(recipes[index]) }
+                        for index in offsets {
+                            ChefMessage.deleteConversation(of: recipes[index].id, in: context)
+                            context.delete(recipes[index])
+                        }
                         try? context.save()
                     }
                 }
